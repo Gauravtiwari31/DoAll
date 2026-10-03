@@ -8,16 +8,18 @@ import {
   PreferencesState,
 } from './features/preferences/preferencesSlice';
 import { RootNavigator } from './navigation/RootNavigator';
+import { server } from './services/server';
 import { STORAGE_KEYS, storage } from './services/storage';
 import { store } from './store';
 import { ThemeProvider } from './theme';
 
 /**
- * Startup: load saved preferences first (so the right theme paints on the
- * first frame), then check for a saved session. The splash screen stays up
- * until `auth.status` leaves 'restoring'.
+ * Startup: load the saved server address and preferences first (so the right
+ * theme paints on the first frame), then check for a saved session. The
+ * splash screen stays up until `auth.status` leaves 'restoring'.
  */
 async function bootstrap() {
+  await server.restore();
   store.dispatch(
     preferencesHydrated(
       await storage.get<PreferencesState>(STORAGE_KEYS.preferences),

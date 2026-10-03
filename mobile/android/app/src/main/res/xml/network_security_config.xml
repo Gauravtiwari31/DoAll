@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  DoAll talks to a self-hosted API that usually runs over plain HTTP on a local
+  network: the emulator's host (10.0.2.2) or a laptop on the same Wi-Fi. React
+  Native's Gradle plugin disables cleartext traffic in release builds, which
+  would make a release APK unable to reach such a server, so it is allowed here.
+  (On Android 7+ this config takes precedence over android:usesCleartextTraffic.)
+  Serve the API over HTTPS for a public deployment.
+-->
+<network-security-config>
+    <base-config cleartextTrafficPermitted="true">
+        <trust-anchors>
+            <certificates src="system" />
+        </trust-anchors>
+    </base-config>
+</network-security-config>

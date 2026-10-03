@@ -5,6 +5,7 @@ import {
   StyleSheet,
   View,
 } from 'react-native';
+import { ServerButton } from './ServerSettings';
 import { AppText, IconButton, Screen } from './ui';
 
 interface AuthLayoutProps {
@@ -31,7 +32,10 @@ export function AuthLayout({
           keyboardShouldPersistTaps="handled"
           showsVerticalScrollIndicator={false}
         >
-          <IconButton icon="arrowLeft" label="Back" onPress={onBack} />
+          <View style={styles.topBar}>
+            <IconButton icon="arrowLeft" label="Back" onPress={onBack} />
+            <ServerButton />
+          </View>
           <View style={styles.header}>
             <AppText variant="title" style={styles.title}>
               {title}
@@ -51,6 +55,11 @@ export function AuthLayout({
 const styles = StyleSheet.create({
   flex: { flex: 1 },
   content: { flexGrow: 1, padding: 24, paddingTop: 12 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
   header: { marginTop: 28, marginBottom: 28 },
   title: { fontSize: 40, lineHeight: 50, letterSpacing: -1.4 },
   subtitle: { marginTop: 10, fontSize: 16, lineHeight: 22 },

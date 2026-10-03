@@ -36,4 +36,5 @@ export const STORAGE_KEYS = {
   session: 'doall.session.v1',
   user: 'doall.user.v1',
   preferences: 'doall.preferences.v1',
+  apiUrl: 'doall.apiUrl.v1',
 } as const;

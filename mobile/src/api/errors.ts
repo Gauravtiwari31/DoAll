@@ -12,7 +12,7 @@ export function getErrorMessage(
     if (!error.response) {
       return error.code === 'ECONNABORTED'
         ? 'The server took too long to respond.'
-        : "Can't reach the DoAll server. Check your connection.";
+        : "Can't reach the DoAll server. Check it's running and the server address is right.";
     }
     const message = (error.response.data as { message?: unknown } | undefined)
       ?.message;

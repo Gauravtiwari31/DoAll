@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { ServerButton } from '../components/ServerSettings';
 import { PrioritySticker } from '../components/tasks/TaskBadges';
 import {
   Accent,
@@ -82,7 +83,10 @@ export function WelcomeScreen({ navigation }: AuthScreenProps<'Welcome'>) {
         contentContainerStyle={styles.content}
         showsVerticalScrollIndicator={false}
       >
-        <Logo size={34} />
+        <View style={styles.topBar}>
+          <Logo size={34} />
+          <ServerButton />
+        </View>
 
         <View style={styles.hero}>
           <AppText variant="display" style={styles.headline}>
@@ -131,6 +135,12 @@ export function WelcomeScreen({ navigation }: AuthScreenProps<'Welcome'>) {
 
 const styles = StyleSheet.create({
   content: { flexGrow: 1, padding: 24, paddingTop: 16 },
+  topBar: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    gap: 12,
+  },
   hero: { marginTop: 36 },
   headline: { fontSize: 64, lineHeight: 66, letterSpacing: -2.4 },
   allRow: { flexDirection: 'row', marginTop: 4 },

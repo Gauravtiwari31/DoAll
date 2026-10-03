@@ -77,6 +77,7 @@ const ICONS = {
   refresh: ['M20 11a8 8 0 1 0-2.3 5.7', 'M20 4v7h-7'],
   note: ['M6 3h12v18H6z', 'M9.5 8h5', 'M9.5 12h5', 'M9.5 16h3'],
   bolt: ['M13 2L4 14h7l-1 8 9-12h-7z'],
+  server: ['M4 4h16v6H4z', 'M4 14h16v6H4z', 'M8 7h.01', 'M8 17h.01'],
   grid: ['M4 4h7v7H4z', 'M13 4h7v7h-7z', 'M4 13h7v7H4z', 'M13 13h7v7h-7z'],
 } as const;
 

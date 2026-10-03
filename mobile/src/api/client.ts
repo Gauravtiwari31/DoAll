@@ -3,16 +3,12 @@ import axios, {
   InternalAxiosRequestConfig,
   isAxiosError,
 } from 'axios';
-import {
-  API_URL,
-  REQUEST_TIMEOUT_MS,
-  TOKEN_REFRESH_MARGIN_MS,
-} from '../config';
+import { REQUEST_TIMEOUT_MS, TOKEN_REFRESH_MARGIN_MS } from '../config';
+import { server } from '../services/server';
 import { AuthTokens, session } from '../services/session';
 
-/** Pre-configured HTTP client for the DoAll API. */
+/** Pre-configured HTTP client for the DoAll API (base URL set per request). */
 export const api = axios.create({
-  baseURL: API_URL,
   timeout: REQUEST_TIMEOUT_MS,
   headers: { 'Content-Type': 'application/json' },
 });
@@ -41,7 +37,7 @@ export function refreshAccessToken(): Promise<string | null> {
       try {
         // Plain axios (not `api`) so this call bypasses our own interceptors.
         const { data } = await axios.post<{ tokens: AuthTokens }>(
-          `${API_URL}/auth/refresh`,
+          `${server.getUrl()}/auth/refresh`,
           { refreshToken: current.refreshToken },
           { timeout: REQUEST_TIMEOUT_MS },
         );
@@ -65,6 +61,8 @@ export function refreshAccessToken(): Promise<string | null> {
 
 // Attach the access token, refreshing it first if it is about to expire.
 api.interceptors.request.use(async config => {
+  // The server address can change at runtime (welcome screen setting).
+  config.baseURL = server.getUrl();
   let current = session.get();
   if (current && current.expiresAt - Date.now() < TOKEN_REFRESH_MARGIN_MS) {
     await refreshAccessToken();

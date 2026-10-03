@@ -12,15 +12,23 @@ npm run android        # build & install on an emulator / device
 
 The backend must be running (`docker compose up -d --build` from the repo root).
 
+Run every command from this `mobile` folder.
+
 ### Pointing the app at the API
 
-Edit [`src/config.ts`](src/config.ts):
+Tap the server pill on the welcome or login screen. You can test the address before saving it, and it's remembered on the device.
 
-| Where the app runs | `DEV_HOST` |
+| Where the app runs | Server address |
 |---|---|
-| Android emulator | `10.0.2.2` (default) |
-| USB device | `localhost`, after `npm run adb:reverse` |
-| Device on the same Wi-Fi | your computer's LAN IP |
+| Android emulator | `10.0.2.2:3000` (default) |
+| Phone on the same Wi-Fi | your computer's LAN IP, e.g. `192.168.1.20:3000` |
+| USB phone | `localhost:3000`, after `npm run adb:reverse` |
+
+The default comes from [`src/config.ts`](src/config.ts).
+
+### Release APK
+
+`cd android && ./gradlew assembleRelease` builds `android/app/build/outputs/apk/release/app-release.apk`. CI builds the same APK on every push ([workflow](../.github/workflows/android-apk.yml)).
 
 ## Scripts
 
@@ -40,7 +48,7 @@ src/
 ├── App.tsx              providers + startup (preferences → session restore)
 ├── config.ts            API URL and timeouts
 ├── api/                 axios client (auth header, proactive + single-flight refresh), endpoints
-├── services/            session (tokens) and JSON storage helpers
+├── services/            session (tokens), server address, JSON storage helpers
 ├── store/               configureStore, listener middleware, typed hooks
 ├── features/
 │   ├── auth/            authSlice (restore, login, register, logout), validation

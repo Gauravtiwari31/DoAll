@@ -2,6 +2,9 @@
 
 **A to-do app with opinions about what you should do next.**
 
+[![CI](https://github.com/Gauravtiwari31/DoAll/actions/workflows/ci.yml/badge.svg)](https://github.com/Gauravtiwari31/DoAll/actions/workflows/ci.yml)
+[![Android APK](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml/badge.svg)](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml)
+
 DoAll is an Android app built with the React Native CLI and TypeScript, backed by a NestJS + MongoDB REST API. You sign up, add tasks with a schedule, deadline and priority, and DoAll's *smart sort* weighs all three to put the right task on top — then tells you why.
 
 ![DoAll screens](docs/preview.png)
@@ -24,6 +27,7 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 - [Tech stack](#tech-stack)
 - [Repository layout](#repository-layout)
 - [Getting started](#getting-started)
+  - [Install the APK](#install-the-apk)
 - [How it works](#how-it-works)
   - [Smart sort](#smart-sort)
   - [Authentication flow](#authentication-flow)
@@ -107,7 +111,7 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 │       │   └── tasks/           TaskCard, SwipeableRow, StatsHero, FilterSheet…
 │       ├── screens/             Welcome, Login, Register, Home, TaskDetail, TaskEditor, Profile
 │       ├── navigation/          auth-gated stacks
-│       ├── services/            session + storage
+│       ├── services/            session, server address, storage
 │       ├── theme/               palette, typography, light/dark themes
 │       └── store/               store setup + typed hooks
 ├── docs/                        screenshots
@@ -122,7 +126,7 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 
 - **Node.js 22.11+** and npm
 - **Android development setup** for React Native — Android Studio with SDK Platform 36, an emulator or a USB-debugging device, and JDK 17+ ([official guide](https://reactnative.dev/docs/set-up-your-environment))
-- **Docker** (easiest way to run MongoDB) *or* a local MongoDB 6+
+- **Docker** (easiest way to run MongoDB) *or* a local MongoDB 6+. On Windows and macOS, start **Docker Desktop** and wait for "Engine running" before using `docker compose`.
 
 ### 1. Start the backend
 
@@ -147,17 +151,33 @@ Swagger docs are served at **http://localhost:3000/api/docs**.
 
 ### 2. Run the app
 
+All app commands run from the **`mobile`** folder. Running them from the repo root fails with `Could not read package.json`.
+
 ```bash
 cd mobile
 npm install
-npm start                                  # Metro bundler
-npm run android                            # in a second terminal
+npm start                                  # terminal 1: Metro bundler (leave it running)
+npm run android                            # terminal 2, also inside mobile/
 ```
 
-The app reaches the API at `http://10.0.2.2:3000/api`, which is how the **Android emulator** sees your computer's `localhost`. For a **physical device**, either:
+By default the app talks to `http://10.0.2.2:3000/api`, which is how the **Android emulator** sees your computer's `localhost`. On a **physical phone**, tap the **server pill** in the top-right of the welcome screen and enter your computer's Wi-Fi IP, e.g. `192.168.1.20:3000`. *Test* checks the connection before you save. To find the IP, run `ipconfig` on Windows or `ipconfig getifaddr en0` on macOS. The phone and computer must be on the same network, and the firewall must allow port 3000.
 
-- run `npm run adb:reverse` and set `DEV_HOST` to `'localhost'` in [`mobile/src/config.ts`](mobile/src/config.ts), or
-- set `DEV_HOST` to your computer's LAN IP (phone and computer on the same Wi-Fi).
+### Install the APK
+
+Every push that changes the app builds a release APK on GitHub Actions:
+
+- **Tagged versions:** download `DoAll.apk` from the [latest release](https://github.com/Gauravtiwari31/DoAll/releases/latest).
+- **Any build:** open the [Android APK workflow](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml), pick a run, and download the `DoAll-apk` artifact (a zip containing the APK).
+
+Install it on a phone (allow "install unknown apps") or drag it onto a running emulator. Start the backend as above, then set the server address from the welcome screen.
+
+To build it yourself instead:
+
+```bash
+cd mobile/android
+./gradlew assembleRelease        # Windows: .\gradlew assembleRelease
+# → mobile/android/app/build/outputs/apk/release/app-release.apk
+```
 
 ---
 
@@ -277,7 +297,7 @@ npm run lint
 |---|---|
 | Backend unit | 19 |
 | Backend e2e | 13 — registration, duplicates, validation, login, protected routes, refresh rotation & reuse detection, logout, CRUD, filters, search, smart sort, ownership isolation, stats |
-| Mobile | 38 |
+| Mobile | 49 |
 
 ---
 
@@ -285,6 +305,7 @@ npm run lint
 
 - **Token storage.** Tokens are kept in AsyncStorage, which is app-private storage, and `allowBackup` is off. For production I'd switch to Android Keystore-backed storage such as `react-native-keychain`. Only [`services/session.ts`](mobile/src/services/session.ts) would change.
 - **Sorting on the device.** A personal task list is small, so the app fetches it once and filters and sorts locally for instant feedback. The API offers the same filters and sorts for other clients.
-- **HTTP in development.** Debug builds talk to the local API over plain HTTP. Release builds block cleartext traffic, so a deployed API should use HTTPS.
+- **Plain HTTP is allowed.** The backend is meant to be self-hosted on a laptop or LAN, so the app's [network security config](mobile/android/app/src/main/res/xml/network_security_config.xml) permits HTTP even in release builds. A public deployment should serve the API over HTTPS.
+- **The release APK is signed with the debug keystore** from the React Native template, which is fine for sideloading. Publishing to the Play Store would need a private upload key.
 - **Undo for delete** recreates the task with the same content and status (it gets a new id).
 - **Platform.** The app targets Android, per the brief. The iOS folder is the untouched React Native template.

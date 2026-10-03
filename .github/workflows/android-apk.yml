@@ -1,0 +1,71 @@
+# Builds an installable DoAll APK.
+#  - Every push that touches the app, or a manual run: APK is attached to the
+#    workflow run as the "DoAll-apk" artifact.
+#  - Pushing a version tag (e.g. v1.0.0): the APK is also published on a
+#    GitHub Release for that tag.
+name: Android APK
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ['**']
+    tags: ['v*']
+    paths:
+      - 'mobile/**'
+      - '.github/workflows/android-apk.yml'
+
+permissions:
+  contents: write # needed only to publish the APK on a Release
+
+concurrency:
+  group: apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  apk:
+    runs-on: ubuntu-latest
+    timeout-minutes: 75
+    defaults:
+      run:
+        working-directory: mobile
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: mobile/package-lock.json
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - uses: gradle/actions/setup-gradle@v4
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build release APK
+        working-directory: mobile/android
+        # Phones (arm64 / armv7) and x86_64 emulators; skips 32-bit x86 to save time.
+        run: |
+          chmod +x gradlew
+          ./gradlew assembleRelease --no-daemon \
+            -PreactNativeArchitectures=arm64-v8a,armeabi-v7a,x86_64
+
+      - name: Rename APK
+        run: cp android/app/build/outputs/apk/release/app-release.apk DoAll.apk
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: DoAll-apk
+          path: mobile/DoAll.apk
+          if-no-files-found: error
+
+      - name: Publish on the release
+        if: startsWith(github.ref, 'refs/tags/v')
+        uses: softprops/action-gh-release@v2
+        with:
+          files: mobile/DoAll.apk
