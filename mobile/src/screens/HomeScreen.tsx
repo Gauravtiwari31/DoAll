@@ -102,11 +102,10 @@ export function HomeScreen({ navigation }: AppScreenProps<'Home'>) {
   const dashboard = useAppSelector(state => selectDashboard(state, now));
   const [sheetOpen, setSheetOpen] = useState(false);
 
+  // Home mounts once per sign-in: load the list fresh every time.
   useEffect(() => {
-    if (status === 'idle') {
-      dispatch(fetchTasks());
-    }
-  }, [status, dispatch]);
+    dispatch(fetchTasks());
+  }, [dispatch]);
 
   const openTask = useCallback(
     (task: Task) => navigation.navigate('TaskDetail', { id: task.id }),

@@ -1,4 +1,4 @@
-import { logout, sessionExpired } from '../../auth/authSlice';
+import { login, logout, sessionExpired } from '../../auth/authSlice';
 import reducer, {
   deleteTask,
   fetchTasks,
@@ -59,6 +59,21 @@ describe('tasksSlice', () => {
       expect(reset.filters.view).toBe('all');
       expect(reset.status).toBe('idle');
     }
+  });
+
+  it('starts clean after signing in again, even if a request failed late', () => {
+    // Session expires, then the in-flight fetch rejects after the reset.
+    const expired = reducer(loaded, sessionExpired());
+    const lateFailure = reducer(expired, {
+      type: fetchTasks.rejected.type,
+      payload: 'Session expired',
+      meta: {},
+    });
+    expect(lateFailure.status).toBe('failed');
+
+    const signedIn = reducer(lateFailure, { type: login.fulfilled.type });
+    expect(signedIn.status).toBe('idle');
+    expect(signedIn.error).toBeNull();
   });
 
   it('surfaces fetch errors', () => {

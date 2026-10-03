@@ -277,7 +277,7 @@ npm run lint
 |---|---|
 | Backend unit | 19 |
 | Backend e2e | 13 — registration, duplicates, validation, login, protected routes, refresh rotation & reuse detection, logout, CRUD, filters, search, smart sort, ownership isolation, stats |
-| Mobile | 37 |
+| Mobile | 38 |
 
 ---
 

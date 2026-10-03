@@ -7,7 +7,7 @@ import {
 } from '@reduxjs/toolkit';
 import { getErrorMessage } from '../../api/errors';
 import { tasksApi } from '../../api/tasksApi';
-import { logout, sessionExpired } from '../auth/authSlice';
+import { login, logout, register, sessionExpired } from '../auth/authSlice';
 import {
   Category,
   Priority,
@@ -242,9 +242,16 @@ const tasksSlice = createSlice({
         },
       )
 
-      // Never leak one user's tasks into the next session.
+      // Never leak one user's tasks into the next session. Signing in also
+      // resets, so a request that failed after the session expired can't
+      // leave the next session stuck in an error state.
       .addMatcher(
-        isAnyOf(logout.fulfilled, sessionExpired),
+        isAnyOf(
+          logout.fulfilled,
+          sessionExpired,
+          login.fulfilled,
+          register.fulfilled,
+        ),
         () => initialState,
       );
   },
