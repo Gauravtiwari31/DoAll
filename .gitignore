@@ -1,0 +1,4 @@
+# Per-project ignores live in backend/.gitignore and mobile/.gitignore.
+.env
+.DS_Store
+node_modules/

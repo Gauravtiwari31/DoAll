@@ -1,0 +1,36 @@
+# One command to run the DoAll backend locally:
+#   docker compose up -d --build
+# API → http://localhost:3000/api   ·   Swagger docs → http://localhost:3000/api/docs
+services:
+  mongo:
+    image: mongo:7
+    restart: unless-stopped
+    ports:
+      - '27017:27017'
+    volumes:
+      - mongo-data:/data/db
+    healthcheck:
+      test: ['CMD', 'mongosh', '--quiet', '--eval', "db.adminCommand('ping')"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: ./backend
+    restart: unless-stopped
+    depends_on:
+      mongo:
+        condition: service_healthy
+    ports:
+      - '3000:3000'
+    environment:
+      PORT: 3000
+      MONGODB_URI: mongodb://mongo:27017/doall
+      # Development defaults — override via a root .env file or your shell.
+      JWT_ACCESS_SECRET: ${JWT_ACCESS_SECRET:-dev-only-access-secret-please-change-0001}
+      JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-only-refresh-secret-please-change-0002}
+      JWT_ACCESS_TTL: 15m
+      JWT_REFRESH_TTL: 30d
+
+volumes:
+  mongo-data:
