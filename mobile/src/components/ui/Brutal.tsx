@@ -32,6 +32,11 @@ interface BrutalBaseProps {
  * by `offset`) and the face grows to fill the rest. A face with a fixed width
  * (icon buttons, avatars) makes the outer view hug it — otherwise a stretching
  * parent would widen the shadow but not the face.
+ *
+ * A face with a fixed height never grows. React Native lays out with Yoga's
+ * legacy errata, under which a flex-grow child fills all the height its parent
+ * is offered; in a row aligned to `flex-start` that is the rest of the screen,
+ * so the search bar's filter button stretched to the bottom of the page.
  */
 function useBrutalStyles(
   t: Theme,
@@ -46,7 +51,9 @@ function useBrutalStyles(
 ) {
   const o = offset ?? t.shadowOffset;
   const r = radius ?? t.radius.md;
-  const hug = StyleSheet.flatten(contentStyle)?.width !== undefined;
+  const faceStyle = StyleSheet.flatten(contentStyle);
+  const hug = faceStyle?.width !== undefined;
+  const grow = faceStyle?.height === undefined;
   return {
     hasShadow: o > 0,
     outer: [{ paddingRight: o, paddingBottom: o }, hug && styles.hug],
@@ -60,7 +67,7 @@ function useBrutalStyles(
       },
     ],
     face: [
-      styles.face,
+      grow && styles.grow,
       {
         backgroundColor: color ?? t.colors.surface,
         borderColor: borderColor ?? t.colors.line,
@@ -168,6 +175,6 @@ export function BrutalPressable({
 const styles = StyleSheet.create({
   hug: { alignSelf: 'flex-start' },
   shadow: { position: 'absolute', right: 0, bottom: 0 },
-  face: { flexGrow: 1 },
+  grow: { flexGrow: 1 },
   disabled: { opacity: 0.5 },
 });
