@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Mirrors src/theme/palette.ts so native chrome matches the JS UI. -->
+    <color name="ic_launcher_background">#FF5A1F</color>
+    <color name="window_background">#F2EDE4</color>
+    <color name="accent">#FF5A1F</color>
+    <color name="ink">#121212</color>
+</resources>
