@@ -11,7 +11,7 @@ export function getErrorMessage(
   if (isAxiosError(error)) {
     if (!error.response) {
       return error.code === 'ECONNABORTED'
-        ? 'The server took too long to respond.'
+        ? 'The server is taking a while. If it was asleep it will be up in a few seconds, so try again.'
         : "Can't reach the DoAll server. Check it's running and the server address is right.";
     }
     const message = (error.response.data as { message?: unknown } | undefined)

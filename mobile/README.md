@@ -24,7 +24,7 @@ Tap the server pill on the welcome or login screen. You can test the address bef
 | Phone on the same Wi-Fi | your computer's LAN IP, e.g. `192.168.1.20:3000` |
 | USB phone | `localhost:3000`, after `npm run adb:reverse` |
 
-The default comes from [`src/config.ts`](src/config.ts).
+The default is the local backend, unless the build was given a hosted URL. CI writes the repository variable `DOALL_API_URL` into [`src/env.ts`](src/env.ts); see [`src/config.ts`](src/config.ts).
 
 ### Release APK
 

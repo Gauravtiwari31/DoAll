@@ -53,6 +53,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      # Repository variable DOALL_API_URL (Settings → Secrets and variables →
+      # Actions → Variables), e.g. https://doall-api.onrender.com, makes the APK
+      # use the hosted backend by default. Unset = local backend (10.0.2.2).
+      - name: Point the app at the hosted API
+        if: vars.DOALL_API_URL != ''
+        env:
+          DOALL_API_URL: ${{ vars.DOALL_API_URL }}
+        run: |
+          node -e "require('fs').writeFileSync('src/env.ts', 'export const HOSTED_API_URL: string | null = ' + JSON.stringify(process.env.DOALL_API_URL) + ';\n')"
+          cat src/env.ts
+
       - name: Build release APK
         working-directory: mobile/android
         # Phones (arm64 / armv7) and x86_64 emulators; skips 32-bit x86 to save time.

@@ -25,6 +25,11 @@ export function validateEnv(env: Record<string, unknown>): Record<string, unknow
     problems.push('PORT must be a number');
   }
 
+  const proxy = env.TRUST_PROXY;
+  if (proxy !== undefined && !(typeof proxy === 'string' && /^\d+$/.test(proxy))) {
+    problems.push('TRUST_PROXY must be a whole number (hops), e.g. 1');
+  }
+
   if (problems.length > 0) {
     throw new Error(`Invalid environment configuration:\n  - ${problems.join('\n  - ')}`);
   }

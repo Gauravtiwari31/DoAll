@@ -24,6 +24,7 @@ You need a MongoDB instance; `docker compose up -d mongo` from the repo root sta
 | `JWT_REFRESH_SECRET` | — (required) | Signs refresh tokens; must differ from the access secret |
 | `JWT_ACCESS_TTL` | `15m` | Access token lifetime |
 | `JWT_REFRESH_TTL` | `30d` | Refresh token lifetime |
+| `TRUST_PROXY` | `0` | Reverse proxies in front of the API (`1` on Render). Lets rate limiting see each client's real IP |
 
 The app refuses to start if a secret is missing, shorter than 32 characters, or reused for both token types.
 

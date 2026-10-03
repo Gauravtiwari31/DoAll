@@ -1,0 +1,31 @@
+# Render Blueprint for the DoAll API (free plan).
+# Render dashboard → New → Blueprint → pick this repo. You'll be asked for
+# MONGODB_URI (your MongoDB Atlas connection string); the JWT secrets are
+# generated automatically.
+services:
+  - type: web
+    name: doall-api
+    runtime: node
+    plan: free
+    region: singapore
+    rootDir: backend
+    buildCommand: npm ci && npm run build
+    startCommand: npm run start:prod
+    healthCheckPath: /api/health
+    autoDeploy: true
+    envVars:
+      - key: NODE_VERSION
+        value: '22'
+      - key: MONGODB_URI
+        sync: false
+      - key: JWT_ACCESS_SECRET
+        generateValue: true
+      - key: JWT_REFRESH_SECRET
+        generateValue: true
+      - key: JWT_ACCESS_TTL
+        value: 15m
+      - key: JWT_REFRESH_TTL
+        value: 30d
+      # Render sits one proxy hop in front of the app.
+      - key: TRUST_PROXY
+        value: '1'

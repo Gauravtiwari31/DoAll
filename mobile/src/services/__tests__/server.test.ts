@@ -1,5 +1,6 @@
 import { DEFAULT_API_URL } from '../../config';
-import { displayHost, normalizeApiUrl, server } from '../server';
+import { displayHost, normalizeApiUrl } from '../../utils/url';
+import { server } from '../server';
 
 describe('normalizeApiUrl', () => {
   it.each([

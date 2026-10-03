@@ -1,13 +1,9 @@
 import axios from 'axios';
 import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
-import { DEFAULT_API_URL } from '../config';
-import {
-  displayHost,
-  normalizeApiUrl,
-  server,
-  useServerUrl,
-} from '../services/server';
+import { DEFAULT_API_URL, LOCAL_API_URL } from '../config';
+import { server, useServerUrl } from '../services/server';
+import { displayHost, normalizeApiUrl } from '../utils/url';
 import { palette, useTheme } from '../theme';
 import {
   AppText,
@@ -105,8 +101,9 @@ export function ServerButton() {
       <Sheet visible={open} onClose={() => setOpen(false)} title="Server">
         <View style={styles.body}>
           <AppText color="textMuted">
-            Where the DoAll API is running. On the Android emulator keep the
-            default; on a phone, use your computer's Wi-Fi IP address.
+            Where the DoAll API is running. Keep the default unless you run your
+            own backend: then use 10.0.2.2:3000 on the Android emulator, or your
+            computer's Wi-Fi IP on a phone.
           </AppText>
           <TextField
             label="API address"
@@ -159,7 +156,21 @@ export function ServerButton() {
               style={styles.reset}
             >
               <AppText variant="label" uppercase color={palette.signal}>
-                Reset to emulator default ({displayHost(DEFAULT_API_URL)})
+                Reset to default ({displayHost(DEFAULT_API_URL)})
+              </AppText>
+            </Pressable>
+          ) : null}
+          {url !== LOCAL_API_URL && DEFAULT_API_URL !== LOCAL_API_URL ? (
+            <Pressable
+              onPress={() => {
+                setDraft(LOCAL_API_URL);
+                setCheck({ state: 'idle' });
+              }}
+              hitSlop={8}
+              style={styles.reset}
+            >
+              <AppText variant="label" uppercase color="textMuted">
+                Use my computer ({displayHost(LOCAL_API_URL)})
               </AppText>
             </Pressable>
           ) : null}

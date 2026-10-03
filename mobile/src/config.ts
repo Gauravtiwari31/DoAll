@@ -1,20 +1,27 @@
 import { Platform } from 'react-native';
+import { HOSTED_API_URL } from './env';
+import { normalizeApiUrl } from './utils/url';
 
 /**
- * Default address of the DoAll API. `10.0.2.2` is how the Android emulator
- * reaches your computer's `localhost`.
- *
- * On a physical phone, set the address in the app instead (the "Server"
- * button on the welcome screen), e.g. `http://192.168.1.20:3000/api` — your
- * computer's LAN IP. See services/server.ts.
+ * A backend running on your own computer, as seen from the Android emulator
+ * (`10.0.2.2` is the emulator's alias for your computer's `localhost`).
  */
 const DEV_HOST = Platform.select({ android: '10.0.2.2', default: 'localhost' });
-const DEV_PORT = 3000;
+export const LOCAL_API_URL = `http://${DEV_HOST}:3000/api`;
 
-export const DEFAULT_API_URL = `http://${DEV_HOST}:${DEV_PORT}/api`;
+/**
+ * Address the app uses until someone changes it from the welcome screen's
+ * server button: the hosted API when the build was given one (env.ts),
+ * otherwise the local backend. See services/server.ts.
+ */
+export const DEFAULT_API_URL =
+  (HOSTED_API_URL && normalizeApiUrl(HOSTED_API_URL)) || LOCAL_API_URL;
 
-/** Abort requests that hang (bad Wi-Fi, server down) instead of spinning forever. */
-export const REQUEST_TIMEOUT_MS = 15_000;
+/**
+ * Abort requests that hang (bad Wi-Fi, server down) instead of spinning
+ * forever. Generous because a free-tier host can take ~30 s to wake up.
+ */
+export const REQUEST_TIMEOUT_MS = 30_000;
 
 /** Refresh the access token this long before it actually expires. */
 export const TOKEN_REFRESH_MARGIN_MS = 30_000;

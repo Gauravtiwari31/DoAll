@@ -20,6 +20,7 @@ import { ThemeProvider } from './theme';
  */
 async function bootstrap() {
   await server.restore();
+  server.warmUp();
   store.dispatch(
     preferencesHydrated(
       await storage.get<PreferencesState>(STORAGE_KEYS.preferences),

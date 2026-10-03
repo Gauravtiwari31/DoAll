@@ -1,6 +1,8 @@
 # One command to run the DoAll backend locally:
 #   docker compose up -d --build
 # API → http://localhost:3000/api   ·   Swagger docs → http://localhost:3000/api/docs
+name: doall
+
 services:
   mongo:
     image: mongo:7

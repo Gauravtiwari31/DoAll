@@ -28,6 +28,7 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 - [Repository layout](#repository-layout)
 - [Getting started](#getting-started)
   - [Install the APK](#install-the-apk)
+- [Deploy the backend (free)](#deploy-the-backend-free)
 - [How it works](#how-it-works)
   - [Smart sort](#smart-sort)
   - [Authentication flow](#authentication-flow)
@@ -114,8 +115,10 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 │       ├── services/            session, server address, storage
 │       ├── theme/               palette, typography, light/dark themes
 │       └── store/               store setup + typed hooks
+├── .github/workflows/           CI (tests) + Android APK build/release
 ├── docs/                        screenshots
-└── docker-compose.yml           MongoDB + API in one command
+├── docker-compose.yml           MongoDB + API in one command
+└── render.yaml                  one-click Render deployment of the API
 ```
 
 ---
@@ -169,7 +172,9 @@ Every push that changes the app builds a release APK on GitHub Actions:
 - **Tagged versions:** download `DoAll.apk` from the [latest release](https://github.com/Gauravtiwari31/DoAll/releases/latest).
 - **Any build:** open the [Android APK workflow](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml), pick a run, and download the `DoAll-apk` artifact (a zip containing the APK).
 
-Install it on a phone (allow "install unknown apps") or drag it onto a running emulator. Start the backend as above, then set the server address from the welcome screen.
+Install it on a phone (allow "install unknown apps") or drag it onto a running emulator. If the APK was built with a hosted server ([below](#deploy-the-backend-free)), it works straight away. Otherwise, start the backend as above and set the server address from the welcome screen.
+
+> The download links only work for people who aren't logged in to GitHub when the repository is **public**.
 
 To build it yourself instead:
 
@@ -178,6 +183,39 @@ cd mobile/android
 ./gradlew assembleRelease        # Windows: .\gradlew assembleRelease
 # → mobile/android/app/build/outputs/apk/release/app-release.apk
 ```
+
+---
+
+## Deploy the backend (free)
+
+Hosting the API means the APK works for anyone, anywhere, with no setup. You need two free accounts.
+
+### 1. Database: MongoDB Atlas
+
+1. Sign up at [mongodb.com/atlas](https://www.mongodb.com/atlas) and create a free **M0** cluster. AWS **Singapore** is closest to the Render region below; Mumbai also works.
+2. **Database Access → Add New Database User:** choose a username and a strong password, with the role *Read and write to any database*.
+3. **Network Access → Add IP Address → Allow access from anywhere** (`0.0.0.0/0`). Render's free plan has no fixed IP address, so Atlas can't allow-list it.
+4. **Connect → Drivers:** copy the connection string and add the database name `doall` after the host:
+   ```
+   mongodb+srv://USER:PASSWORD@cluster0.xxxxx.mongodb.net/doall?retryWrites=true&w=majority
+   ```
+   If the password contains special characters, URL-encode them (`@` → `%40`, `#` → `%23`).
+
+### 2. API: Render
+
+1. Sign up at [render.com](https://render.com) with GitHub and give it access to this repository.
+2. **New → Blueprint** → choose this repo. Render reads [`render.yaml`](render.yaml), asks for `MONGODB_URI` (paste the Atlas string) and generates the JWT secrets itself. Click **Apply**.
+3. When the deploy finishes, open `https://<your-service>.onrender.com/api/health`. It should return `{"status":"ok","db":"up"}`.
+
+### 3. Build an APK that uses it
+
+1. On GitHub, go to **Settings → Secrets and variables → Actions → Variables → New repository variable**: `DOALL_API_URL` = `https://<your-service>.onrender.com`.
+2. **Actions → Android APK → Run workflow** and enter a new version in *release*, e.g. `v1.1.0`.
+3. About 15 minutes later the release has a `DoAll.apk` that talks to your hosted API by default. The server button still lets you switch to a local backend.
+
+### Sleep on the free plan
+
+Render's free instances spin down after **15 minutes** without traffic, and the next request takes roughly 30–60 seconds to wake them. The app softens this: it pings the server as soon as it opens and waits up to 30 seconds per request. To avoid cold starts entirely, have a free uptime monitor such as [UptimeRobot](https://uptimerobot.com) or [cron-job.org](https://cron-job.org) request `https://<your-service>.onrender.com/api/health` every 10 minutes. One always-on service fits within the free plan's 750 instance-hours a month.
 
 ---
 
