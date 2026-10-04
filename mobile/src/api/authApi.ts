@@ -33,4 +33,8 @@ export const authApi = {
     api.post<void>('/auth/logout', { refreshToken }),
 
   me: () => api.get<User>('/auth/me').then(r => r.data),
+
+  /** Permanently deletes the account and all its tasks; needs the password. */
+  deleteAccount: (password: string) =>
+    api.delete<void>('/auth/me', { data: { password } }),
 };

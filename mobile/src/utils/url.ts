@@ -21,3 +21,12 @@ export function normalizeApiUrl(input: string): string | null {
 /** "http://192.168.1.20:3000/api" → "192.168.1.20:3000" (for compact display). */
 export const displayHost = (url: string) =>
   url.replace(/^https?:\/\//, '').replace(/\/api$/, '');
+
+/**
+ * Origin of the site an API base URL belongs to, where the server's own web
+ * pages live:
+ *   "https://doall.example.com/api" → "https://doall.example.com"
+ *   "http://10.0.2.2:3000/api"      → "http://10.0.2.2:3000"
+ */
+export const siteOrigin = (apiUrl: string) =>
+  apiUrl.replace(/^(https?:\/\/[^/]+).*$/i, '$1');

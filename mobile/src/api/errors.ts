@@ -36,3 +36,7 @@ export const isNetworkError = (error: unknown) =>
 
 export const isUnauthorized = (error: unknown) =>
   isAxiosError(error) && error.response?.status === 401;
+
+/** 403: signed in, but the server refused (e.g. a wrong confirmation password). */
+export const isForbidden = (error: unknown) =>
+  isAxiosError(error) && error.response?.status === 403;

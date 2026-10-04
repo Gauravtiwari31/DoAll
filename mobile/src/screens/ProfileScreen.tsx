@@ -1,7 +1,8 @@
 import { format } from 'date-fns';
-import React from 'react';
+import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { DeleteAccountSheet } from '../components/DeleteAccountSheet';
 import {
   Accent,
   AppText,
@@ -14,6 +15,7 @@ import {
   useConfirm,
   useToast,
 } from '../components/ui';
+import { APP_VERSION } from '../config';
 import { logout } from '../features/auth/authSlice';
 import {
   setThemeMode,
@@ -24,6 +26,7 @@ import { CATEGORY_META } from '../features/tasks/taskMeta';
 import { clearCompleted } from '../features/tasks/tasksSlice';
 import { CATEGORIES } from '../features/tasks/types';
 import { useNow } from '../hooks/useNow';
+import { useOpenPrivacyPolicy } from '../hooks/useOpenPrivacyPolicy';
 import { AppScreenProps } from '../navigation/types';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { palette, useTheme } from '../theme';
@@ -60,7 +63,9 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
   const dispatch = useAppDispatch();
   const confirm = useConfirm();
   const toast = useToast();
+  const openPrivacyPolicy = useOpenPrivacyPolicy();
   const now = useNow();
+  const [deleteOpen, setDeleteOpen] = useState(false);
   const user = useAppSelector(state => state.auth.user);
   const themeMode = useAppSelector(state => state.preferences.themeMode);
   const stats = useAppSelector(state => selectDashboard(state, now));
@@ -248,15 +253,42 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
           />
         </View>
 
+        <SectionLabel style={styles.section}>Account & privacy</SectionLabel>
+        <View style={styles.actions}>
+          <Button
+            title="Privacy policy"
+            icon="lock"
+            iconPosition="left"
+            variant="outline"
+            size="md"
+            onPress={openPrivacyPolicy}
+            testID="profile-privacy-policy"
+          />
+          <Button
+            title="Delete account"
+            icon="trash"
+            iconPosition="left"
+            variant="outline"
+            size="md"
+            onPress={() => setDeleteOpen(true)}
+            testID="profile-delete-account"
+          />
+        </View>
+
         <AppText
           variant="mono"
           color="textFaint"
           align="center"
           style={styles.version}
         >
-          DoAll 1.0 · ink, paper & a smart sort
+          {`DoAll ${APP_VERSION} · ink, paper & a smart sort`}
         </AppText>
       </ScrollView>
+
+      <DeleteAccountSheet
+        visible={deleteOpen}
+        onClose={() => setDeleteOpen(false)}
+      />
     </Screen>
   );
 }

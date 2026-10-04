@@ -1,4 +1,9 @@
-import { login, logout, sessionExpired } from '../../auth/authSlice';
+import {
+  deleteAccount,
+  login,
+  logout,
+  sessionExpired,
+} from '../../auth/authSlice';
 import reducer, {
   deleteTask,
   fetchTasks,
@@ -51,14 +56,25 @@ describe('tasksSlice', () => {
     expect(failed.ids).toEqual([task.id]);
   });
 
-  it('forgets everything on logout or session expiry', () => {
+  it('forgets everything on logout, account deletion or session expiry', () => {
     const filtered = reducer(loaded, setView('done'));
-    for (const action of [{ type: logout.fulfilled.type }, sessionExpired()]) {
+    for (const action of [
+      { type: logout.fulfilled.type },
+      { type: deleteAccount.fulfilled.type },
+      sessionExpired(),
+    ]) {
       const reset = reducer(filtered, action);
       expect(reset.ids).toEqual([]);
       expect(reset.filters.view).toBe('all');
       expect(reset.status).toBe('idle');
     }
+
+    // A deletion the server refused leaves the list alone.
+    const refused = reducer(filtered, {
+      type: deleteAccount.rejected.type,
+      payload: 'Incorrect password',
+    });
+    expect(refused).toEqual(filtered);
   });
 
   it('starts clean after signing in again, even if a request failed late', () => {

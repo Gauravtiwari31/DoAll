@@ -7,7 +7,13 @@ import {
 } from '@reduxjs/toolkit';
 import { getErrorMessage } from '../../api/errors';
 import { tasksApi } from '../../api/tasksApi';
-import { login, logout, register, sessionExpired } from '../auth/authSlice';
+import {
+  deleteAccount,
+  login,
+  logout,
+  register,
+  sessionExpired,
+} from '../auth/authSlice';
 import {
   Category,
   Priority,
@@ -248,6 +254,7 @@ const tasksSlice = createSlice({
       .addMatcher(
         isAnyOf(
           logout.fulfilled,
+          deleteAccount.fulfilled,
           sessionExpired,
           login.fulfilled,
           register.fulfilled,

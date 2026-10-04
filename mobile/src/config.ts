@@ -1,6 +1,10 @@
 import { Platform } from 'react-native';
+import { version } from '../package.json';
 import { HOSTED_API_URL } from './env';
-import { normalizeApiUrl } from './utils/url';
+import { normalizeApiUrl, siteOrigin } from './utils/url';
+
+/** Set only in package.json; the Android build reads the same field. */
+export const APP_VERSION: string = version;
 
 /**
  * A backend running on your own computer, as seen from the Android emulator
@@ -16,6 +20,16 @@ export const LOCAL_API_URL = `http://${DEV_HOST}:3000/api`;
  */
 export const DEFAULT_API_URL =
   (HOSTED_API_URL && normalizeApiUrl(HOSTED_API_URL)) || LOCAL_API_URL;
+
+/**
+ * Web pages served by the server this build was made for (hosted API in
+ * release builds, local backend in dev builds). They don't follow a server
+ * picked at runtime: the privacy policy belongs to the published app, and
+ * someone's own server is outside it.
+ */
+const SITE_URL = siteOrigin(DEFAULT_API_URL);
+export const PRIVACY_POLICY_URL = `${SITE_URL}/privacy`;
+export const ACCOUNT_DELETION_URL = `${SITE_URL}/account/delete`;
 
 /**
  * Abort requests that hang (bad Wi-Fi, server down) instead of spinning

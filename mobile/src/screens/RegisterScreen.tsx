@@ -11,6 +11,7 @@ import {
   RegisterForm,
   validateRegistration,
 } from '../features/auth/validation';
+import { useOpenPrivacyPolicy } from '../hooks/useOpenPrivacyPolicy';
 import { AuthScreenProps } from '../navigation/types';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { palette, useTheme } from '../theme';
@@ -57,6 +58,7 @@ function StrengthMeter({ password }: { password: string }) {
 export function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
   const dispatch = useAppDispatch();
   const submitting = useAppSelector(state => state.auth.submitting);
+  const openPrivacyPolicy = useOpenPrivacyPolicy();
   const [form, setForm] = useState<RegisterForm>({
     name: '',
     email: '',
@@ -184,6 +186,22 @@ export function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
         loading={submitting}
         testID="register-submit"
       />
+
+      <Pressable
+        onPress={openPrivacyPolicy}
+        hitSlop={8}
+        accessibilityRole="link"
+        accessibilityHint="Opens the privacy policy in your browser"
+        testID="register-privacy-policy"
+      >
+        <AppText variant="caption" color="textMuted" align="center">
+          By creating an account you agree to the{' '}
+          <AppText variant="caption" style={styles.link}>
+            Privacy Policy
+          </AppText>
+          .
+        </AppText>
+      </Pressable>
     </AuthLayout>
   );
 }
@@ -192,4 +210,5 @@ const styles = StyleSheet.create({
   meter: { flexDirection: 'row', alignItems: 'center', gap: 10, marginTop: 10 },
   bars: { flex: 1, flexDirection: 'row', gap: 6 },
   bar: { flex: 1, height: 8, borderRadius: 4, borderWidth: 1.5 },
+  link: { textDecorationLine: 'underline' },
 });

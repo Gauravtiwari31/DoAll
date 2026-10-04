@@ -1,6 +1,6 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
 import { authApi, Credentials, Registration, User } from '../../api/authApi';
-import { getErrorMessage, isNetworkError } from '../../api/errors';
+import { getErrorMessage, isForbidden, isNetworkError } from '../../api/errors';
 import { session } from '../../services/session';
 import { STORAGE_KEYS, storage } from '../../services/storage';
 
@@ -83,15 +83,44 @@ export const register = createAsyncThunk<
   }
 });
 
+/** Drops the tokens and the cached profile from the device. */
+const forgetSession = async () => {
+  await session.clear();
+  await storage.remove(STORAGE_KEYS.user);
+};
+
 /** Revokes the refresh token server-side (best effort) and forgets it locally. */
 export const logout = createAsyncThunk('auth/logout', async () => {
   const current = session.get();
   if (current) {
     await authApi.logout(current.refreshToken).catch(() => undefined);
   }
-  await session.clear();
-  await storage.remove(STORAGE_KEYS.user);
+  await forgetSession();
 });
+
+/**
+ * Permanently deletes the account and all its tasks, then forgets the session
+ * like logout. The server answers a wrong password with 403 (a 401 would make
+ * the client refresh the token), flagged as `meta.wrongPassword` so the form
+ * can show it on the password field.
+ */
+export const deleteAccount = createAsyncThunk<
+  void,
+  string,
+  { rejectValue: string; rejectedMeta: { wrongPassword: boolean } }
+>('auth/deleteAccount', async (password, { rejectWithValue }) => {
+  try {
+    await authApi.deleteAccount(password);
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error), {
+      wrongPassword: isForbidden(error),
+    });
+  }
+  await forgetSession();
+});
+
+/** Where logout and account deletion end: signed out, nothing kept, no notice. */
+const signedOut = (): AuthState => ({ ...initialState, status: 'signedOut' });
 
 const authSlice = createSlice({
   name: 'auth',
@@ -119,10 +148,8 @@ const authSlice = createSlice({
       .addCase(restoreSession.rejected, state => {
         state.status = 'signedOut';
       })
-      .addCase(logout.fulfilled, () => ({
-        ...initialState,
-        status: 'signedOut' as const,
-      }));
+      .addCase(logout.fulfilled, signedOut)
+      .addCase(deleteAccount.fulfilled, signedOut);
 
     // login & register share the same lifecycle.
     for (const thunk of [login, register]) {

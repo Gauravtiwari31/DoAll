@@ -1,5 +1,13 @@
 import React, { PropsWithChildren, useEffect, useRef, useState } from 'react';
-import { Animated, Modal, Pressable, StyleSheet, View } from 'react-native';
+import {
+  Animated,
+  Keyboard,
+  Modal,
+  Pressable,
+  StyleSheet,
+  useWindowDimensions,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useTheme } from '../../theme';
 import { AppText } from './AppText';
@@ -11,6 +19,26 @@ interface SheetProps {
   title: string;
 }
 
+/**
+ * Height of the on-screen keyboard while it is open, otherwise 0. A sheet is
+ * an edge-to-edge window that Android doesn't resize for the keyboard, so the
+ * panel has to make room for it itself.
+ */
+function useKeyboardHeight() {
+  const [height, setHeight] = useState(0);
+  useEffect(() => {
+    const shown = Keyboard.addListener('keyboardDidShow', e =>
+      setHeight(e.endCoordinates.height),
+    );
+    const hidden = Keyboard.addListener('keyboardDidHide', () => setHeight(0));
+    return () => {
+      shown.remove();
+      hidden.remove();
+    };
+  }, []);
+  return height;
+}
+
 /** Bottom sheet: dimmed backdrop + panel that slides up from the bottom edge. */
 export function Sheet({
   visible,
@@ -20,6 +48,8 @@ export function Sheet({
 }: PropsWithChildren<SheetProps>) {
   const t = useTheme();
   const insets = useSafeAreaInsets();
+  const keyboardHeight = useKeyboardHeight();
+  const { height: windowHeight } = useWindowDimensions();
   const progress = useRef(new Animated.Value(0)).current;
   // Keep the Modal mounted until the closing animation has finished.
   const [mounted, setMounted] = useState(visible);
@@ -69,7 +99,14 @@ export function Sheet({
             backgroundColor: t.colors.background,
             borderColor: t.colors.line,
             borderWidth: t.border,
-            paddingBottom: insets.bottom + 20,
+            // React Native reports the keyboard height without the navigation
+            // bar. While the keyboard is open the panel may also grow up to the
+            // status bar, so fields and buttons stay above the keyboard instead
+            // of being cut off by the usual height cap.
+            paddingBottom: insets.bottom + 20 + keyboardHeight,
+            ...(keyboardHeight > 0 && {
+              maxHeight: windowHeight - insets.top - 8,
+            }),
             transform: [{ translateY }],
           },
         ]}
