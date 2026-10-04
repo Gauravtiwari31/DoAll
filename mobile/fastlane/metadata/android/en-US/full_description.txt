@@ -1,0 +1,39 @@
+DoAll is a to-do list with an opinion about what you should do next.
+
+Give each task a time to do it, an optional deadline and a priority. DoAll's smart sort weighs all three, puts the most pressing task first and shows you why it ranked there.
+
+How smart sort works
+Every open task gets a score from three signals:
+• Deadline pressure counts the most. It grows as a deadline gets closer, and an overdue task climbs further during its first two days late.
+• Priority is strong but not absolute, so a low-priority task due in two hours outranks a high-priority task due next week.
+• Schedule lifts tasks you planned to start soon and keeps started but unfinished work in view.
+The highest-scoring task gets an "Up next" badge, and each task's detail screen breaks its score down. Prefer a different order? Sort by deadline, scheduled time, priority or newest first.
+
+Plan
+• Tasks with a title, notes, a date and time, an optional deadline, a priority (low, medium or high), a category and up to five tags
+• Six color-coded categories: Personal, Work, Study, Health, Shopping and Other
+• One-tap presets such as Tonight, Tomorrow and In 3 days, or the Android date and time pickers
+• Quick views for All, Today, Upcoming, Overdue and Done, each with a live count
+• Filters for priority and category, and search across titles, notes and #tags
+
+Get it done
+• Swipe right to complete a task and swipe left to delete it, with undo for both
+• Live countdowns such as "Due in 3h" and "2d late", and overdue tasks that stand out
+• Today's progress ring and your next task, right on the home screen
+• Your numbers on the profile screen: totals, completion rate and open tasks by category
+• Clear all completed tasks at once
+• Light, dark or system theme
+
+Your account and your data
+DoAll needs an account (your name, an email address and a password) and an internet connection. Your tasks are saved to your account, so they are still there when you reinstall the app or sign in on another phone.
+• No ads, no analytics and no tracking
+• Your tasks are private to your account. There is no sharing between users.
+• The app talks to the DoAll server over an encrypted HTTPS connection.
+• Delete your account at any time in the app (Profile → Delete account) or on the web at https://doall-api-m1yy.onrender.com/account/delete. Your account and all of your tasks are removed immediately and permanently.
+Privacy policy: https://doall-api-m1yy.onrender.com/privacy
+
+Run your own server
+DoAll's server is open source too. Run it yourself and point the app at it with the server button on the welcome screen.
+
+Free and open source
+DoAll is free, with no ads and no in-app purchases. The source code of the app and the server is on GitHub: https://github.com/Gauravtiwari31/DoAll

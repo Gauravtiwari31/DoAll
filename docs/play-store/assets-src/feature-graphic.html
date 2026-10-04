@@ -1,0 +1,225 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>DoAll feature graphic</title>
+<style>
+  /* Bundled app fonts. As on Android, every file is its own family. */
+  @font-face { font-family: 'BricolageGrotesque-Medium'; src: url('../../../mobile/android/app/src/main/assets/fonts/BricolageGrotesque-Medium.ttf'); font-display: block; }
+  @font-face { font-family: 'BricolageGrotesque-SemiBold'; src: url('../../../mobile/android/app/src/main/assets/fonts/BricolageGrotesque-SemiBold.ttf'); font-display: block; }
+  @font-face { font-family: 'BricolageGrotesque-ExtraBold'; src: url('../../../mobile/android/app/src/main/assets/fonts/BricolageGrotesque-ExtraBold.ttf'); font-display: block; }
+  @font-face { font-family: 'IBMPlexMono-Medium'; src: url('../../../mobile/android/app/src/main/assets/fonts/IBMPlexMono-Medium.ttf'); font-display: block; }
+  @font-face { font-family: 'IBMPlexMono-SemiBold'; src: url('../../../mobile/android/app/src/main/assets/fonts/IBMPlexMono-SemiBold.ttf'); font-display: block; }
+  @font-face { font-family: 'InstrumentSerif-Italic'; src: url('../../../mobile/android/app/src/main/assets/fonts/InstrumentSerif-Italic.ttf'); font-display: block; }
+
+  /* mobile/src/theme/palette.ts */
+  :root {
+    --paper: #F2EDE4;
+    --card: #FFFCF6;
+    --ink: #121212;
+    --ink-soft: #5E594F;
+    --signal: #FF5A1F;
+    --lime: #D7F75B;
+    --butter: #FFD45C;
+    --sky: #9CD7FF;
+    --lilac: #CDB8FF;
+    --blush: #FFA9C9;
+    --danger: #E5341B;
+  }
+
+  html, body { margin: 0; background: var(--paper); }
+  * { box-sizing: border-box; }
+
+  .canvas {
+    position: relative;
+    width: 1024px;
+    height: 500px;
+    overflow: hidden;
+    background: var(--paper);
+    color: var(--ink);
+  }
+
+  /* Left: logo, "Do it all." hero and lede, as on the welcome screen. */
+  .copy { position: absolute; left: 76px; top: 98px; }
+  .logo { display: flex; align-items: center; gap: 10px; }
+  .logo svg { width: 50px; height: 50px; }
+  .wordmark { font: 37px/50px 'BricolageGrotesque-ExtraBold'; letter-spacing: -1.2px; }
+  .wordmark .accent { font: 45px/50px 'InstrumentSerif-Italic'; letter-spacing: -0.5px; }
+
+  .headline { margin-top: 30px; font: 96px/100px 'BricolageGrotesque-ExtraBold'; letter-spacing: -3.6px; white-space: nowrap; }
+  .all {
+    display: inline-block;
+    margin-left: 20px;
+    padding: 2px 24px 8px;
+    background: var(--lime);
+    border: 3px solid var(--ink);
+    border-radius: 22px;
+    box-shadow: 6px 6px 0 var(--ink);
+    transform: rotate(-3deg);
+    font: 108px/116px 'InstrumentSerif-Italic';
+    letter-spacing: -0.5px;
+  }
+  .lede {
+    margin-top: 24px;
+    width: 450px;
+    font: 24px/32px 'BricolageGrotesque-Medium';
+    color: var(--ink-soft);
+    text-wrap: balance;
+  }
+
+  /* Right: a loose pile of task "notes" (WelcomeScreen's NoteCollage). */
+  .note {
+    position: absolute;
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    padding: 18px 22px;
+    border: 3px solid var(--ink);
+    border-radius: 20px;
+    box-shadow: 6px 6px 0 var(--ink);
+  }
+  .note1 { left: 578px; top: 69px; background: var(--butter); transform: rotate(-6deg); }
+  .note2 { left: 604px; top: 197px; background: var(--sky); transform: rotate(4deg); }
+  .note3 { left: 584px; top: 335px; background: var(--blush); transform: rotate(-2deg); }
+
+  .check {
+    flex: none;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    height: 36px;
+    border: 3px solid var(--ink);
+    border-radius: 11px;
+    background: var(--card);
+  }
+  .check.done { background: var(--lime); }
+  .check svg { width: 23px; height: 23px; }
+
+  .title { font: 26px/33px 'BricolageGrotesque-SemiBold'; }
+  .struck { text-decoration: line-through; text-decoration-thickness: 2.5px; }
+  .meta { font: 20px/27px 'IBMPlexMono-Medium'; letter-spacing: 0.3px; color: var(--ink-soft); }
+  .meta.due { color: var(--danger); }
+
+  .sticker {
+    display: flex;
+    align-items: center;
+    height: 36px;
+    padding: 0 10px;
+    border: 3px solid var(--ink);
+    border-radius: 9px;
+    background: var(--signal);
+    transform: rotate(4deg);
+    font: 17px/1 'IBMPlexMono-SemiBold';
+    letter-spacing: 1.7px;
+  }
+
+  /* TaskCard's "up next" tab: the task smart sort recommends doing next. */
+  .upnext {
+    position: absolute;
+    top: -18px;
+    left: 20px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 11px 0 9px;
+    border: 3px solid var(--ink);
+    border-radius: 9px;
+    background: var(--lime);
+    font: 15px/1 'IBMPlexMono-SemiBold';
+    letter-spacing: 1.6px;
+  }
+  .upnext svg { width: 18px; height: 18px; }
+
+  .spark {
+    position: absolute;
+    left: 880px;
+    top: 54px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 62px;
+    height: 62px;
+    border: 3px solid var(--ink);
+    border-radius: 50%;
+    background: var(--lilac);
+  }
+  .spark svg { width: 34px; height: 34px; }
+</style>
+</head>
+<body>
+<div class="canvas">
+  <div class="copy">
+    <div class="logo">
+      <!-- LogoMark from mobile/src/components/ui/Logo.tsx -->
+      <svg viewBox="30 28 50 50" aria-hidden="true">
+        <path fill="#121212" d="M46,37 h20 a9,9 0 0 1 9,9 v20 a9,9 0 0 1 -9,9 h-20 a9,9 0 0 1 -9,-9 v-20 a9,9 0 0 1 9,-9 z" />
+        <path fill="#FFFCF6" stroke="#121212" stroke-width="3.5" d="M42,33 h20 a9,9 0 0 1 9,9 v20 a9,9 0 0 1 -9,9 h-20 a9,9 0 0 1 -9,-9 v-20 a9,9 0 0 1 9,-9 z" />
+        <path fill="none" stroke="#121212" stroke-width="6" stroke-linecap="round" stroke-linejoin="round" d="M42.5,52.5 L49.5,59 L62,45" />
+        <circle cx="70.5" cy="33.5" r="5.5" fill="#D7F75B" stroke="#121212" stroke-width="3" />
+      </svg>
+      <div class="wordmark">Do<span class="accent">All</span></div>
+    </div>
+    <div class="headline">Do it<span class="all">all.</span></div>
+    <div class="lede">Plan your day, beat your deadlines, and let smart sort tell you what’s next.</div>
+  </div>
+
+  <div class="note note1">
+    <div class="check done">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="3.4" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12.5l4.5 4.5L19 7.5" /></svg>
+    </div>
+    <div class="title struck">Buy oat milk</div>
+  </div>
+
+  <div class="note note2">
+    <div class="upnext">
+      <svg viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"><path d="M13 2L4 14h7l-1 8 9-12h-7z" /></svg>
+      UP NEXT
+    </div>
+    <div class="check"></div>
+    <div>
+      <div class="title">Pitch deck v2</div>
+      <div class="meta due">Due in 3h</div>
+    </div>
+    <div class="sticker">HI</div>
+  </div>
+
+  <div class="note note3">
+    <div class="check"></div>
+    <div>
+      <div class="title">Gym session</div>
+      <div class="meta">Today · 7:00pm</div>
+    </div>
+  </div>
+
+  <div class="spark">
+    <svg viewBox="0 0 24 24" fill="none" stroke="#121212" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M12 3l1.9 5.6L19.5 10l-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.4z" />
+      <path d="M19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z" />
+    </svg>
+  </div>
+</div>
+<script>
+  // render.py reads data-fonts from the DOM dump: "ok" only when every font
+  // file loaded and every piece of text is set in one of them (no fallback).
+  const faces = [...document.fonts];
+  Promise.allSettled(faces.map(f => f.load())).then(() => {
+    const families = new Set(faces.map(f => f.family.replace(/["']/g, '')));
+    const problems = faces
+      .filter(f => f.status !== 'loaded')
+      .map(f => `${f.family} did not load`);
+    for (const el of document.querySelectorAll('.canvas *')) {
+      const hasText = [...el.childNodes].some(
+        n => n.nodeType === Node.TEXT_NODE && n.textContent.trim(),
+      );
+      const family = getComputedStyle(el).fontFamily.split(',')[0].replace(/["']/g, '').trim();
+      if (hasText && !families.has(family)) {
+        problems.push(`"${el.textContent.trim()}" uses ${family}`);
+      }
+    }
+    document.documentElement.dataset.fonts = problems.length ? problems.join('; ') : 'ok';
+  });
+</script>
+</body>
+</html>

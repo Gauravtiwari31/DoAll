@@ -1,0 +1,4 @@
+DoAll's first release on Google Play.
+• Delete your account and all of your tasks at any time, in the app (Profile → Delete account) or on the web.
+• Read the privacy policy from inside the app.
+• Plan with smart sort, quick views, search and filters, and swipe to complete or delete.

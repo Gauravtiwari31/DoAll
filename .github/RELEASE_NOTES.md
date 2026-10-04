@@ -1,8 +1,19 @@
 **DoAll** is an Android to-do app with accounts, a smart sort that tells you what to do next, and a paper & ink design.
 
+### What's new in 1.2.0
+
+- **Delete your account** whenever you like: **Profile → Delete account** in the app, or [on the web](https://doall-api-m1yy.onrender.com/account/delete). Your account, all of your tasks and every sign-in session are removed immediately and permanently.
+- **Privacy policy**, linked from the sign-up and profile screens ([read it here](https://doall-api-m1yy.onrender.com/privacy)).
+- **Ready for Google Play:** a new package ID (`io.github.gauravtiwari31.doall`), signed with a private release key, and a smaller, optimized build. The profile screen shows the app version.
+- Sheets with a text field (server address, delete account) now stay above the keyboard.
+
+### Upgrading from 1.0 or 1.1
+
+Because of the new package ID and signature, Android treats 1.2.0 as a different app: it installs next to the old version instead of updating it. Uninstall the old DoAll first. Your tasks are stored on the server, so just log in again.
+
 ### Install
 
-1. Download **DoAll.apk** below. Open it on an Android phone (allow *Install unknown apps* when asked), or drag it onto a running emulator.
+1. Download **DoAll.apk** below. Open it on an Android phone (allow *Install unknown apps* when asked), or drag it onto a running emulator. **DoAll.aab** is the app bundle for Google Play; phones can't install it directly.
 2. Create an account and start adding tasks. The app uses the hosted DoAll server, so there is nothing else to set up.
 
 The server runs on a free plan and sleeps when nobody has used it for a while. If the first screen takes up to a minute to respond, it is waking up; after that it is quick.
@@ -17,5 +28,6 @@ The server runs on a free plan and sleeps when nobody has used it for a while. I
 - Today / Upcoming / Overdue / Done views, filters and search
 - Swipe right to complete, swipe left to delete, both with undo
 - Progress ring, profile stats, light and dark themes
+- No ads, no analytics, no tracking; delete your account at any time
 
 Requires Android 7.0 (API 24) or newer.

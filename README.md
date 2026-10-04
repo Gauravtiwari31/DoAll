@@ -3,7 +3,7 @@
 **A to-do app with opinions about what you should do next.**
 
 [![CI](https://github.com/Gauravtiwari31/DoAll/actions/workflows/ci.yml/badge.svg)](https://github.com/Gauravtiwari31/DoAll/actions/workflows/ci.yml)
-[![Android APK](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml/badge.svg)](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml)
+[![Android build](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml/badge.svg)](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml)
 
 DoAll is an Android app built with the React Native CLI and TypeScript, backed by a NestJS + MongoDB REST API. You sign up, add tasks with a schedule, deadline and priority, and DoAll's *smart sort* weighs all three to put the right task on top — then tells you why.
 
@@ -29,6 +29,7 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 - [Getting started](#getting-started)
   - [Install the APK](#install-the-apk)
 - [Deploy the backend (free)](#deploy-the-backend-free)
+- [Publishing on Google Play](#publishing-on-google-play)
 - [How it works](#how-it-works)
   - [Smart sort](#smart-sort)
   - [Authentication flow](#authentication-flow)
@@ -64,6 +65,7 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 - **Feels fast** — optimistic updates with automatic rollback, skeleton loaders, pull-to-refresh, animated cards and a haptic tick when you finish something.
 - **Hardened auth** — short-lived access tokens, rotating refresh tokens with reuse detection, rate limiting on credential endpoints, and a session that survives app restarts.
 - **Housekeeping** — bulk "clear completed", discard-changes guard on the editor, Swagger docs for the API.
+- **Privacy controls** — delete your account and every task from **Profile → Delete account** or on the [web](https://doall-api-m1yy.onrender.com/account/delete); the [privacy policy](https://doall-api-m1yy.onrender.com/privacy) is linked from sign-up and the profile screen.
 
 ---
 
@@ -95,12 +97,15 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 │   │   ├── common/              global JWT guard, decorators, pipes, utils
 │   │   ├── config/              typed config + env validation
 │   │   ├── health/              liveness endpoint
+│   │   ├── legal/               public pages: privacy policy, account deletion
 │   │   ├── app.module.ts        wiring (Mongo, guards, throttling)
 │   │   └── main.ts              bootstrap + Swagger
 │   ├── test/                    end-to-end tests (real MongoDB)
 │   └── Dockerfile
 ├── mobile/                      React Native app (Android)
-│   ├── android/                 native project (fonts, icon, splash, theme)
+│   ├── android/                 native project (fonts, icon, splash, theme, release signing)
+│   ├── fastlane/metadata/       Google Play listing: text, icon, feature graphic, screenshots
+│   ├── scripts/                 create-upload-key.mjs (Play upload key + CI secrets)
 │   └── src/
 │       ├── api/                 axios client, endpoints, error mapping
 │       ├── features/
@@ -115,8 +120,8 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 │       ├── services/            session, server address, storage
 │       ├── theme/               palette, typography, light/dark themes
 │       └── store/               store setup + typed hooks
-├── .github/workflows/           CI (tests) + Android APK build/release
-├── docs/                        screenshots
+├── .github/workflows/           CI (tests) + Android build (APK, app bundle, releases)
+├── docs/                        screenshots, Google Play publishing guide
 ├── docker-compose.yml           MongoDB + API in one command
 └── render.yaml                  one-click Render deployment of the API
 ```
@@ -170,11 +175,13 @@ By default the app talks to `http://10.0.2.2:3000/api`, which is how the **Andro
 Every push that changes the app builds a release APK on GitHub Actions:
 
 - **Tagged versions:** download `DoAll.apk` from the [latest release](https://github.com/Gauravtiwari31/DoAll/releases/latest).
-- **Any build:** open the [Android APK workflow](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml), pick a run, and download the `DoAll-apk` artifact (a zip containing the APK).
+- **Any build:** open the [Android build workflow](https://github.com/Gauravtiwari31/DoAll/actions/workflows/android-apk.yml), pick a run, and download the `DoAll-apk` artifact (a zip containing the APK).
 
 Install it on a phone (allow "install unknown apps") or drag it onto a running emulator. If the APK was built with a hosted server ([below](#deploy-the-backend-free)), it works straight away. Otherwise, start the backend as above and set the server address from the welcome screen.
 
 > The download links only work for people who aren't logged in to GitHub when the repository is **public**.
+
+**Upgrading from 1.0 or 1.1:** from 1.2.0 the app has a new package ID (`io.github.gauravtiwari31.doall`, the one Google Play uses) and is signed with a private release key, so it installs next to the old version instead of updating it. Uninstall the old DoAll; your tasks are on the server, so just log in again.
 
 To build it yourself instead:
 
@@ -183,6 +190,8 @@ cd mobile/android
 ./gradlew assembleRelease        # Windows: .\gradlew assembleRelease
 # → mobile/android/app/build/outputs/apk/release/app-release.apk
 ```
+
+Without the [upload key](#publishing-on-google-play), Gradle signs this build with the debug key and prints a warning: it installs on any device, but Google Play won't accept it.
 
 ---
 
@@ -210,12 +219,32 @@ Hosting the API means the APK works for anyone, anywhere, with no setup. You nee
 ### 3. Build an APK that uses it
 
 1. On GitHub, go to **Settings → Secrets and variables → Actions → Variables → New repository variable**: `DOALL_API_URL` = `https://<your-service>.onrender.com`.
-2. **Actions → Android APK → Run workflow** and enter a new version in *release*, e.g. `v1.1.0`.
-3. About 15 minutes later the release has a `DoAll.apk` that talks to your hosted API by default. The server button still lets you switch to a local backend.
+2. Create the release signing key once, from `mobile/`: `npm run play:upload-key -- --github` ([details](docs/play-store/README.md#1-create-the-upload-key)).
+3. **Actions → Android build → Run workflow** and enter the version from `mobile/package.json` in *release*, e.g. `v1.2.0`.
+4. About 15 minutes later the release has a `DoAll.apk` and a Google Play-ready `DoAll.aab` that talk to your hosted API by default. The server button still lets you switch to a local backend.
+
+For a quick test build, leave *release* empty: the run's `DoAll-apk` artifact works without the signing key.
 
 ### Sleep on the free plan
 
 Render's free instances spin down after **15 minutes** without traffic, and the next request takes roughly 30–60 seconds to wake them. The app softens this: it pings the server as soon as it opens and waits up to 30 seconds per request. To avoid cold starts entirely, have a free uptime monitor such as [UptimeRobot](https://uptimerobot.com) or [cron-job.org](https://cron-job.org) request `https://<your-service>.onrender.com/api/health` every 10 minutes. One always-on service fits within the free plan's 750 instance-hours a month.
+
+---
+
+## Publishing on Google Play
+
+DoAll is set up for Google Play as `io.github.gauravtiwari31.doall`. The step-by-step guide, from the developer account to the production release, is in **[docs/play-store/README.md](docs/play-store/README.md)**. What's already in place:
+
+| Requirement | Where |
+|---|---|
+| Android App Bundle signed with a private upload key, Play App Signing | [`app/build.gradle`](mobile/android/app/build.gradle), [`create-upload-key.mjs`](mobile/scripts/create-upload-key.mjs), the [Android build workflow](.github/workflows/android-apk.yml) |
+| Version code derived from `mobile/package.json` (`1.2.0` → `10200`) | [`app/build.gradle`](mobile/android/app/build.gradle) |
+| Target API 36, 16 KB page-size compatible native code, R8 shrinking | [`android/build.gradle`](mobile/android/build.gradle), [`app/build.gradle`](mobile/android/app/build.gradle) |
+| Privacy policy, linked in the app | [`/privacy`](https://doall-api-m1yy.onrender.com/privacy) ([source](backend/src/legal)) |
+| Account deletion in the app and on the web | **Profile → Delete account**, [`/account/delete`](https://doall-api-m1yy.onrender.com/account/delete) |
+| Data safety answers | [docs/play-store/data-safety.md](docs/play-store/data-safety.md) |
+| Store listing text, icon, feature graphic and screenshots | [`mobile/fastlane/metadata/android/en-US`](mobile/fastlane/metadata/android/en-US) |
+| Optional automatic draft uploads to a Play track | `play_track` input of the Android build workflow |
 
 ---
 
@@ -301,6 +330,7 @@ Base URL: `http://localhost:3000/api`. Every route except `auth/register`, `auth
 | `POST` | `/auth/refresh` | `{ refreshToken }` → new `{ user, tokens }` (old refresh token is revoked) |
 | `POST` | `/auth/logout` | `{ refreshToken }` → `204` |
 | `GET` | `/auth/me` | Current user |
+| `DELETE` | `/auth/me` | `{ password }` → `204`. Permanently deletes the account, its tasks and every session; a wrong password is `403` |
 | `GET` | `/tasks` | List. Query: `status` (`all`/`active`/`completed`/`overdue`), `priority`, `category`, `tag`, `search`, `from`, `to`, `sort` (`smart`/`deadline`/`scheduled`/`priority`/`created`) |
 | `GET` | `/tasks/stats` | Counters; `tzOffset` (minutes, from `Date#getTimezoneOffset`) defines "today" |
 | `GET` | `/tasks/:id` | One task |
@@ -313,6 +343,8 @@ Base URL: `http://localhost:3000/api`. Every route except `auth/register`, `auth
 
 `tokens` is `{ accessToken, refreshToken, expiresIn }`, where `expiresIn` is the access token's lifetime in seconds. Validation errors return `400` with a `message` array; unknown fields are rejected. A deadline earlier than the scheduled time is rejected.
 
+Two public web pages live outside `/api`: `GET /privacy` (privacy policy) and `GET /account/delete`, whose form (`POST /account/delete` with email, password and a confirmation) deletes an account without the app.
+
 ---
 
 ## Testing
@@ -320,22 +352,22 @@ Base URL: `http://localhost:3000/api`. Every route except `auth/register`, `auth
 ```bash
 # backend
 cd backend
-npm test             # unit: smart ordering, auth service (rotation, reuse detection), env validation
+npm test             # unit: smart ordering, auth service (rotation, reuse detection, account deletion), env validation, HTML escaping
 npm run test:e2e     # end-to-end against a real MongoDB (docker compose up -d mongo)
 npm run lint
 
 # mobile
 cd mobile
-npm test             # ordering, selectors, slices, validation, dates, API client refresh logic, TaskCard
+npm test             # ordering, selectors, slices (incl. account deletion), validation, dates, URLs, API client refresh logic, TaskCard
 npm run typecheck
 npm run lint
 ```
 
 | Suite | Tests |
 |---|---|
-| Backend unit | 19 |
-| Backend e2e | 13 — registration, duplicates, validation, login, protected routes, refresh rotation & reuse detection, logout, CRUD, filters, search, smart sort, ownership isolation, stats |
-| Mobile | 49 |
+| Backend unit | 28 |
+| Backend e2e | 18 — registration, duplicates, validation, login, protected routes, refresh rotation & reuse detection, logout, CRUD, filters, search, smart sort, ownership isolation, stats, account deletion (app and web), privacy and deletion pages |
+| Mobile | 63 |
 
 ---
 
@@ -343,7 +375,8 @@ npm run lint
 
 - **Token storage.** Tokens are kept in AsyncStorage, which is app-private storage, and `allowBackup` is off. For production I'd switch to Android Keystore-backed storage such as `react-native-keychain`. Only [`services/session.ts`](mobile/src/services/session.ts) would change.
 - **Sorting on the device.** A personal task list is small, so the app fetches it once and filters and sorts locally for instant feedback. The API offers the same filters and sorts for other clients.
-- **Plain HTTP is allowed.** The backend is meant to be self-hosted on a laptop or LAN, so the app's [network security config](mobile/android/app/src/main/res/xml/network_security_config.xml) permits HTTP even in release builds. A public deployment should serve the API over HTTPS.
-- **The release APK is signed with the debug keystore** from the React Native template, which is fine for sideloading. Publishing to the Play Store would need a private upload key.
+- **Plain HTTP is allowed for self-hosting.** The hosted API is HTTPS-only, but the server button can point the app at a backend on a laptop or LAN, so the app's [network security config](mobile/android/app/src/main/res/xml/network_security_config.xml) permits HTTP even in release builds. It only applies to an address the user typed in.
+- **Signing.** Release builds are signed with a private upload key kept outside the repository (CI reads it from secrets), and Google Play re-signs them with Play App Signing. Without the key, Gradle falls back to the debug keystore and warns that the build can't go to Google Play.
+- **Deleted accounts.** Deleting an account removes the user, every task and every session at once, and the API refuses any access token that belongs to a deleted account, so nothing new can be stored for it.
 - **Undo for delete** recreates the task with the same content and status (it gets a new id).
 - **Platform.** The app targets Android, per the brief. The iOS folder is the untouched React Native template.
