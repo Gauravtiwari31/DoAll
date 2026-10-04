@@ -1,11 +1,12 @@
 import { INestApplication } from '@nestjs/common';
 import { getConnectionToken } from '@nestjs/mongoose';
 import { Test } from '@nestjs/testing';
-import { Connection } from 'mongoose';
+import { Connection, Types } from 'mongoose';
 import request from 'supertest';
 import { App } from 'supertest/types';
 import { AppModule } from '../src/app.module';
 import { configureApp } from '../src/app.setup';
+import { CONTACT_EMAIL } from '../src/legal/legal.constants';
 
 describe('DoAll API (e2e)', () => {
   let app: INestApplication<App>;
@@ -285,6 +286,126 @@ describe('DoAll API (e2e)', () => {
 
       const cleared = await request(http).delete('/api/tasks/completed').set(auth()).expect(200);
       expect(cleared.body).toEqual({ deleted: 1 });
+    });
+  });
+
+  /** Tasks still stored for a user id, read straight from the database. */
+  const storedTaskCount = (userId: string) =>
+    app
+      .get<Connection>(getConnectionToken())
+      .collection('tasks')
+      .countDocuments({ owner: new Types.ObjectId(userId) });
+
+  describe('account deletion (API)', () => {
+    it('needs the password, then removes the user, their tasks and sessions', async () => {
+      const { body: leaver } = await register('leaver@example.com').expect(201);
+      const { body: bystander } = await register('bystander@example.com').expect(201);
+      const auth = { Authorization: `Bearer ${leaver.tokens.accessToken}` };
+      for (const t of [leaver, bystander]) {
+        await request(http)
+          .post('/api/tasks')
+          .set({ Authorization: `Bearer ${t.tokens.accessToken}` })
+          .send({ title: 'Keep me?' })
+          .expect(201);
+      }
+
+      await request(http).delete('/api/auth/me').send({ password: 'secret123' }).expect(401);
+      await request(http).delete('/api/auth/me').set(auth).send({}).expect(400);
+      // 403, so the app doesn't mistake a typo for an expired session.
+      const wrong = await request(http)
+        .delete('/api/auth/me')
+        .set(auth)
+        .send({ password: 'wrong-pass1' })
+        .expect(403);
+      expect(wrong.body.message).toBe('Incorrect password');
+      expect(await storedTaskCount(leaver.user.id as string)).toBe(1);
+
+      await request(http)
+        .delete('/api/auth/me')
+        .set(auth)
+        .send({ password: 'secret123' })
+        .expect(204);
+
+      expect(await storedTaskCount(leaver.user.id as string)).toBe(0);
+      expect(await storedTaskCount(bystander.user.id as string)).toBe(1);
+      // The access token is still unexpired, but the account is gone: nothing
+      // can be read or stored with it any more.
+      await request(http).get('/api/auth/me').set(auth).expect(401);
+      await request(http).get('/api/tasks').set(auth).expect(401);
+      await request(http).post('/api/tasks').set(auth).send({ title: 'Ghost' }).expect(401);
+      expect(await storedTaskCount(leaver.user.id as string)).toBe(0);
+      await request(http)
+        .post('/api/auth/login')
+        .send({ email: 'leaver@example.com', password: 'secret123' })
+        .expect(401);
+      await request(http)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: leaver.tokens.refreshToken })
+        .expect(401);
+    });
+  });
+
+  describe('public pages', () => {
+    const postForm = (fields: Record<string, string>) =>
+      request(http).post('/account/delete').type('form').send(fields);
+
+    it('serves the privacy policy as HTML outside /api', async () => {
+      const res = await request(http).get('/privacy').expect(200);
+      expect(res.headers['content-type']).toMatch(/^text\/html/);
+      expect(res.text).toContain('privacy policy');
+      expect(res.text).toContain(CONTACT_EMAIL);
+
+      await request(http).get('/api/privacy').expect(404);
+      await request(http).get('/api/health').expect(200);
+    });
+
+    it('serves the account deletion form', async () => {
+      const res = await request(http).get('/account/delete').expect(200);
+      expect(res.headers['content-type']).toMatch(/^text\/html/);
+      expect(res.text).toContain('<form method="post" action="/account/delete">');
+      expect(res.text).toContain('Profile → Delete account');
+    });
+
+    it('answers form mistakes with HTML, never JSON, and escapes what was typed', async () => {
+      const unconfirmed = await postForm({
+        email: '"><script>alert(1)</script>',
+        password: 'x',
+      }).expect(400);
+      expect(unconfirmed.headers['content-type']).toMatch(/^text\/html/);
+      expect(unconfirmed.text).toContain('Please enter a valid email address');
+      expect(unconfirmed.text).toContain('Please tick the box');
+      expect(unconfirmed.text).not.toContain('<script>alert(1)</script>');
+
+      const wrong = await postForm({
+        email: 'nobody@example.com',
+        password: 'wrong-pass1',
+        confirm: 'yes',
+      }).expect(401);
+      expect(wrong.headers['content-type']).toMatch(/^text\/html/);
+      expect(wrong.text).toContain('Incorrect email or password');
+    });
+
+    it('deletes the account and its tasks from the web', async () => {
+      const { body: user } = await register('web-leaver@example.com').expect(201);
+      await request(http)
+        .post('/api/tasks')
+        .set({ Authorization: `Bearer ${user.tokens.accessToken}` })
+        .send({ title: 'Last task' })
+        .expect(201);
+
+      const res = await postForm({
+        email: ' Web-Leaver@Example.com ',
+        password: 'secret123',
+        confirm: 'yes',
+      }).expect(200);
+      expect(res.headers['content-type']).toMatch(/^text\/html/);
+      expect(res.text).toContain('has been permanently deleted');
+
+      expect(await storedTaskCount(user.user.id as string)).toBe(0);
+      await request(http)
+        .post('/api/auth/login')
+        .send({ email: 'web-leaver@example.com', password: 'secret123' })
+        .expect(401);
     });
   });
 });

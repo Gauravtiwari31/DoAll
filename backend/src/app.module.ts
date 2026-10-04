@@ -8,6 +8,7 @@ import { JwtAuthGuard } from './common/guards/jwt-auth.guard';
 import { configuration } from './config/configuration';
 import { validateEnv } from './config/env.validation';
 import { HealthController } from './health/health.controller';
+import { LegalModule } from './legal/legal.module';
 import { TasksModule } from './tasks/tasks.module';
 import { UsersModule } from './users/users.module';
 
@@ -23,6 +24,7 @@ import { UsersModule } from './users/users.module';
     UsersModule,
     AuthModule,
     TasksModule,
+    LegalModule,
   ],
   controllers: [HealthController],
   providers: [

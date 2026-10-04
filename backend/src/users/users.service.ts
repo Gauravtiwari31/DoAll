@@ -28,11 +28,26 @@ export class UsersService {
       .exec();
   }
 
+  /** Includes the password hash and sessions, which are excluded from normal queries. */
+  findByIdWithSecrets(id: string): Promise<UserDocument | null> {
+    return this.userModel.findById(id).select('+passwordHash +sessions').exec();
+  }
+
+  /** Cheap existence check by id (no document is loaded). */
+  async exists(id: string): Promise<boolean> {
+    return (await this.userModel.exists({ _id: id }).exec()) !== null;
+  }
+
   findByIdWithSessions(id: string): Promise<UserDocument | null> {
     return this.userModel.findById(id).select('+sessions').exec();
   }
 
   async replaceSessions(userId: string, sessions: RefreshSession[]): Promise<void> {
     await this.userModel.updateOne({ _id: userId }, { $set: { sessions } }).exec();
+  }
+
+  /** Removes the user document, and with it every refresh session it holds. */
+  async deleteById(id: string): Promise<void> {
+    await this.userModel.deleteOne({ _id: id }).exec();
   }
 }

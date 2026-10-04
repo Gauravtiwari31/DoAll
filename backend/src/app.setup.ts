@@ -1,13 +1,25 @@
-import { INestApplication, ValidationPipe } from '@nestjs/common';
+import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common';
 import helmet from 'helmet';
+import { ACCOUNT_DELETE_PATH, PRIVACY_PATH } from './legal/legal.constants';
 
 /**
  * Cross-cutting HTTP setup shared by `main.ts` and the e2e tests, so tests
  * exercise exactly the same pipeline as production.
  */
 export function configureApp(app: INestApplication): void {
-  app.setGlobalPrefix('api');
-  app.use(helmet());
+  // The public web pages (privacy policy, account deletion) live outside /api.
+  app.setGlobalPrefix('api', {
+    exclude: [
+      { path: PRIVACY_PATH, method: RequestMethod.GET },
+      { path: ACCOUNT_DELETE_PATH, method: RequestMethod.GET },
+      { path: ACCOUNT_DELETE_PATH, method: RequestMethod.POST },
+    ],
+  });
+  // Helmet's default CSP also asks browsers to upgrade http:// requests to
+  // https://. The hosted API is HTTPS anyway, but on a self-hosted server
+  // reached over plain HTTP (LAN, emulator) that would send the account
+  // deletion form to an https:// address that doesn't exist.
+  app.use(helmet({ contentSecurityPolicy: { directives: { upgradeInsecureRequests: null } } }));
   app.enableCors();
   app.useGlobalPipes(
     new ValidationPipe({

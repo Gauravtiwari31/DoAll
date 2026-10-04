@@ -1,9 +1,10 @@
-import { ConflictException, UnauthorizedException } from '@nestjs/common';
+import { ConflictException, ForbiddenException, UnauthorizedException } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 import { sha256 } from '../common/utils/hash';
+import { TasksService } from '../tasks/tasks.service';
 import { RefreshSession } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
 import { AuthService } from './auth.service';
@@ -23,20 +24,28 @@ describe('AuthService', () => {
   let service: AuthService;
   let users: jest.Mocked<UsersService>;
   let savedSessions: RefreshSession[];
+  // Held separately so assertions don't pass unbound methods around.
+  let deleteUser: jest.Mock;
+  let deleteTasks: jest.Mock;
 
   beforeEach(async () => {
     savedSessions = [];
+    deleteUser = jest.fn().mockResolvedValue(undefined);
+    deleteTasks = jest.fn().mockResolvedValue(3);
     users = {
       create: jest.fn(),
       findById: jest.fn(),
       findByEmail: jest.fn(),
       findByEmailWithSecrets: jest.fn(),
+      findByIdWithSecrets: jest.fn(),
       findByIdWithSessions: jest.fn(),
       replaceSessions: jest.fn((_id: string, sessions: RefreshSession[]) => {
         savedSessions = sessions;
         return Promise.resolve();
       }),
+      deleteById: deleteUser,
     } as unknown as jest.Mocked<UsersService>;
+    const tasks = { removeAllForOwner: deleteTasks } as unknown as TasksService;
 
     const config = {
       getOrThrow: (key: string) =>
@@ -53,6 +62,7 @@ describe('AuthService', () => {
         AuthService,
         JwtService,
         { provide: UsersService, useValue: users },
+        { provide: TasksService, useValue: tasks },
         { provide: ConfigService, useValue: config },
       ],
     }).compile();
@@ -119,5 +129,52 @@ describe('AuthService', () => {
       sessions = savedSessions;
     }
     expect(sessions).toHaveLength(5);
+  });
+
+  describe('account deletion', () => {
+    const userId = '64b000000000000000000001';
+
+    it('deletes the tasks first, then the user, once the password is confirmed', async () => {
+      users.findByIdWithSecrets.mockResolvedValue(makeUser() as never);
+
+      await service.deleteAccount(userId, 'secret123');
+
+      expect(deleteTasks).toHaveBeenCalledWith(userId);
+      expect(deleteUser).toHaveBeenCalledWith(userId);
+      expect(deleteTasks.mock.invocationCallOrder[0]).toBeLessThan(
+        deleteUser.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('answers a wrong password with 403 (not 401) and deletes nothing', async () => {
+      users.findByIdWithSecrets.mockResolvedValue(makeUser() as never);
+
+      await expect(service.deleteAccount(userId, 'nope1234')).rejects.toThrow(
+        new ForbiddenException('Incorrect password'),
+      );
+      expect(deleteTasks).not.toHaveBeenCalled();
+      expect(deleteUser).not.toHaveBeenCalled();
+    });
+
+    it('treats an account that is already gone as signed out', async () => {
+      users.findByIdWithSecrets.mockResolvedValue(null);
+
+      await expect(service.deleteAccount(userId, 'secret123')).rejects.toBeInstanceOf(
+        UnauthorizedException,
+      );
+      expect(deleteUser).not.toHaveBeenCalled();
+    });
+
+    it('deletes by email and password for the web form, checking them like login', async () => {
+      users.findByEmailWithSecrets.mockResolvedValue(makeUser() as never);
+      await expect(
+        service.deleteAccountWithCredentials('ada@example.com', 'nope1234'),
+      ).rejects.toThrow(new UnauthorizedException('Incorrect email or password'));
+      expect(deleteUser).not.toHaveBeenCalled();
+
+      await service.deleteAccountWithCredentials('ada@example.com', 'secret123');
+      expect(deleteTasks).toHaveBeenCalledWith(userId);
+      expect(deleteUser).toHaveBeenCalledWith(userId);
+    });
   });
 });

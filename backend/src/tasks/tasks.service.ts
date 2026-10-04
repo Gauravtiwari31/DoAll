@@ -119,6 +119,12 @@ export class TasksService {
     return { deleted: result.deletedCount };
   }
 
+  /** Deletes every task the user owns (account deletion). Returns how many were removed. */
+  async removeAllForOwner(ownerId: string): Promise<number> {
+    const result = await this.taskModel.deleteMany({ owner: ownerId }).exec();
+    return result.deletedCount;
+  }
+
   /**
    * Dashboard numbers. `tzOffset` is the client's `Date#getTimezoneOffset()`
    * so "today" matches the user's wall clock, not the server's.

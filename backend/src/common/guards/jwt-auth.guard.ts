@@ -4,6 +4,7 @@ import { Reflector } from '@nestjs/core';
 import { JwtService } from '@nestjs/jwt';
 import type { Request } from 'express';
 import { IS_PUBLIC_KEY } from '../decorators/public.decorator';
+import { UsersService } from '../../users/users.service';
 import { AccessTokenPayload, AuthUser } from '../interfaces/jwt-payload.interface';
 
 /**
@@ -19,6 +20,7 @@ export class JwtAuthGuard implements CanActivate {
     private readonly reflector: Reflector,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
+    private readonly users: UsersService,
   ) {}
 
   async canActivate(context: ExecutionContext): Promise<boolean> {
@@ -32,16 +34,24 @@ export class JwtAuthGuard implements CanActivate {
     const token = this.extractBearer(request);
     if (!token) throw new UnauthorizedException('Missing access token');
 
+    let payload: AccessTokenPayload;
     try {
-      const payload = await this.jwt.verifyAsync<AccessTokenPayload>(token, {
+      payload = await this.jwt.verifyAsync<AccessTokenPayload>(token, {
         secret: this.config.getOrThrow<string>('jwt.accessSecret'),
       });
-      request.user = { id: payload.sub, email: payload.email };
-      return true;
     } catch {
       // Expired or tampered. The mobile client reacts to 401 by refreshing.
       throw new UnauthorizedException('Invalid or expired access token');
     }
+
+    // An access token outlives a deleted account until it expires. Refuse it,
+    // so nothing new is stored for an account that no longer exists (the
+    // client's refresh then fails too, and the app signs out).
+    if (!(await this.users.exists(payload.sub))) {
+      throw new UnauthorizedException('Account no longer exists');
+    }
+    request.user = { id: payload.sub, email: payload.email };
+    return true;
   }
 
   private extractBearer(request: Request): string | undefined {

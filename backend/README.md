@@ -4,6 +4,15 @@ NestJS 11 + MongoDB backend for the DoAll app: account registration and login wi
 
 See the [root README](../README.md) for the full feature list, auth flow diagram and API reference. Interactive docs are at `/api/docs` while the server is running.
 
+It also serves two public web pages that the Google Play listing links to, outside the `/api` prefix:
+
+| Page | |
+|---|---|
+| `GET /privacy` | Privacy policy |
+| `GET /account/delete` | Account deletion: explains what is deleted and has a form (email, password, confirmation) that posts to `POST /account/delete` |
+
+Signed-in users can also delete their account from the app with `DELETE /api/auth/me` and their password (`403` if the password is wrong). Either way the user's tasks are deleted first, then the user document with every session. The pages are plain server-rendered HTML (no JavaScript), errors on them are shown as HTML too, and the form has the same rate limit as login.
+
 ## Run
 
 ```bash
@@ -48,8 +57,9 @@ src/
 ├── common/      global JwtAuthGuard + @Public(), @CurrentUser(), ObjectId pipe, helpers
 ├── config/      typed configuration and environment validation
 ├── health/      GET /api/health
+├── legal/       public HTML pages: privacy policy, account deletion (text in legal.constants.ts / legal.views.ts)
 ├── app.setup.ts global prefix, Helmet, CORS, ValidationPipe (shared with e2e tests)
 └── main.ts      bootstrap + Swagger
 ```
 
-Global guards run in this order: rate limiting (`@nestjs/throttler`), then JWT authentication. Every route is protected unless marked `@Public()`.
+Global guards run in this order: rate limiting (`@nestjs/throttler`), then JWT authentication, which also checks that the token's account still exists (so a deleted account's unexpired token is refused). Every route is protected unless marked `@Public()`.

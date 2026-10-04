@@ -8,5 +8,7 @@ import { TasksService } from './tasks.service';
   imports: [MongooseModule.forFeature([{ name: Task.name, schema: TaskSchema }])],
   controllers: [TasksController],
   providers: [TasksService],
+  // AuthService removes a user's tasks when the account is deleted.
+  exports: [TasksService],
 })
 export class TasksModule {}

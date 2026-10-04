@@ -1,16 +1,17 @@
-import { Body, Controller, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Post } from '@nestjs/common';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { Throttle } from '@nestjs/throttler';
 import { CurrentUser } from '../common/decorators/current-user.decorator';
 import { Public } from '../common/decorators/public.decorator';
 import type { AuthUser } from '../common/interfaces/jwt-payload.interface';
 import { AuthService } from './auth.service';
+import { DeleteAccountDto } from './dto/delete-account.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
 
 /** Stricter rate limit for credential endpoints to slow down brute forcing. */
-const CREDENTIAL_LIMIT = { default: { limit: 10, ttl: 60_000 } };
+export const CREDENTIAL_LIMIT = { default: { limit: 10, ttl: 60_000 } };
 
 @ApiTags('auth')
 @Controller('auth')
@@ -55,5 +56,14 @@ export class AuthController {
   @Get('me')
   me(@CurrentUser() user: AuthUser) {
     return this.auth.me(user.id);
+  }
+
+  /** Permanently delete the account, all of its tasks and every session. Needs the password. */
+  @ApiBearerAuth()
+  @Throttle(CREDENTIAL_LIMIT)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Delete('me')
+  async deleteMe(@CurrentUser() user: AuthUser, @Body() dto: DeleteAccountDto): Promise<void> {
+    await this.auth.deleteAccount(user.id, dto.password);
   }
 }

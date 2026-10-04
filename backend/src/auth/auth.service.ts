@@ -1,4 +1,10 @@
-import { ConflictException, Injectable, Logger, UnauthorizedException } from '@nestjs/common';
+import {
+  ConflictException,
+  ForbiddenException,
+  Injectable,
+  Logger,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
@@ -8,6 +14,7 @@ import {
   RefreshTokenPayload,
 } from '../common/interfaces/jwt-payload.interface';
 import { sha256 } from '../common/utils/hash';
+import { TasksService } from '../tasks/tasks.service';
 import {
   PublicUser,
   RefreshSession,
@@ -42,6 +49,7 @@ export class AuthService {
 
   constructor(
     private readonly users: UsersService,
+    private readonly tasks: TasksService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -68,13 +76,7 @@ export class AuthService {
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
-    const user = await this.users.findByEmailWithSecrets(dto.email);
-    // Same message for "no such user" and "wrong password" to avoid leaking which emails exist.
-    const valid = user ? await bcrypt.compare(dto.password, user.passwordHash) : false;
-    if (!user || !valid) {
-      throw new UnauthorizedException('Incorrect email or password');
-    }
-
+    const user = await this.verifyCredentials(dto.email, dto.password);
     const tokens = await this.issueTokens(user, user.sessions);
     return { user: toPublicUser(user), tokens };
   }
@@ -124,7 +126,45 @@ export class AuthService {
     return toPublicUser(user);
   }
 
+  /** Permanently deletes the signed-in user's account once the password is confirmed. */
+  async deleteAccount(userId: string, password: string): Promise<void> {
+    const user = await this.users.findByIdWithSecrets(userId);
+    if (!user) throw new UnauthorizedException('Account no longer exists');
+    // 403, not 401: the app reads 401 as "access token expired" and would refresh and retry.
+    if (!(await bcrypt.compare(password, user.passwordHash))) {
+      throw new ForbiddenException('Incorrect password');
+    }
+    await this.removeAccount(user.id as string);
+  }
+
+  /** Same deletion for the public web form, where the user proves who they are like at login. */
+  async deleteAccountWithCredentials(email: string, password: string): Promise<void> {
+    const user = await this.verifyCredentials(email, password);
+    await this.removeAccount(user.id as string);
+  }
+
   // ---------------------------------------------------------------------------
+
+  private async verifyCredentials(email: string, password: string): Promise<UserDocument> {
+    const user = await this.users.findByEmailWithSecrets(email);
+    // Same message for "no such user" and "wrong password" to avoid leaking which emails exist.
+    const valid = user ? await bcrypt.compare(password, user.passwordHash) : false;
+    if (!user || !valid) {
+      throw new UnauthorizedException('Incorrect email or password');
+    }
+    return user;
+  }
+
+  /**
+   * Tasks go first: if that step fails the account still exists and the user
+   * can simply try again, rather than leaving tasks behind that nobody owns.
+   * Deleting the user document also drops every refresh session.
+   */
+  private async removeAccount(userId: string): Promise<void> {
+    const deletedTasks = await this.tasks.removeAllForOwner(userId);
+    await this.users.deleteById(userId);
+    this.logger.log(`Deleted account ${userId} and its ${deletedTasks} task(s)`);
+  }
 
   private async verifyRefreshToken(token: string): Promise<RefreshTokenPayload> {
     try {
