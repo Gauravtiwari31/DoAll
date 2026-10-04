@@ -2,3 +2,13 @@
 .env
 .DS_Store
 node_modules/
+
+# Release signing: never commit upload keys, their passwords or Google Play API
+# credentials, wherever they end up. (mobile/.gitignore re-allows the React
+# Native debug keystore.)
+*.jks
+*.keystore
+*.p12
+*.pk8
+*upload*.properties
+*service-account*.json

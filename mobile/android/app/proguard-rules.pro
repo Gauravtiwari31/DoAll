@@ -1,10 +1,10 @@
-# Add project specific ProGuard rules here.
-# By default, the flags in this file are appended to flags specified
-# in /usr/local/Cellar/android-sdk/24.3.3/tools/proguard/proguard-android.txt
-# You can edit the include path and order by changing the proguardFiles
-# directive in build.gradle.
-#
-# For more details, see
-#   http://developer.android.com/guide/developing/tools/proguard.html
+# R8 rules for DoAll release builds, on top of those that React Native and the
+# libraries ship themselves (consumer rules). Only add rules that something
+# actually needs, with the reason next to them.
 
-# Add any project specific keep options here:
+# react-native-screens: MainActivity installs RNScreensFragmentFactory so the
+# app survives Android restoring it after the process was killed. The factory
+# recognises screen fragments by their class name starting with
+# "com.swmansion.rnscreens"; obfuscated names would slip past it and bring the
+# restore crash back. Keep the names (unused classes can still be removed).
+-keepnames class com.swmansion.rnscreens.** { *; }

@@ -1,6 +1,6 @@
 {
   "name": "doall",
-  "version": "1.0.0",
+  "version": "1.2.0",
   "private": true,
   "description": "DoAll — a React Native (Android) to-do app with authentication, smart sorting and a paper & ink design",
   "author": "Gaurav Tiwari",
@@ -9,6 +9,7 @@
     "ios": "react-native run-ios",
     "start": "react-native start",
     "adb:reverse": "adb reverse tcp:3000 tcp:3000",
+    "play:upload-key": "node scripts/create-upload-key.mjs",
     "typecheck": "tsc --noEmit",
     "lint": "eslint .",
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",

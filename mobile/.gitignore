@@ -33,6 +33,10 @@ local.properties
 .cxx/
 *.keystore
 !debug.keystore
+*.aab
+# Release files CI copies next to package.json
+/DoAll.apk
+/DoAll.aab
 .kotlin/
 
 # node.js
