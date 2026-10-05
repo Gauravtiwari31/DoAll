@@ -11,6 +11,7 @@ The owner's guide to getting DoAll onto Google Play and keeping it there. Work t
 | **Website** | https://github.com/Gauravtiwari31/DoAll |
 | **Privacy policy** | https://doall-api-m1yy.onrender.com/privacy |
 | **Account deletion** | https://doall-api-m1yy.onrender.com/account/delete |
+| **Sign in with Google** | Optional, set up with [docs/google-sign-in.md](../google-sign-in.md). The Play version needs the app signing key's fingerprint, which exists after the first upload. |
 | **First Play version** | `1.2.0`, version code `10200` |
 | **Listing, once live** | https://play.google.com/store/apps/details?id=io.github.gauravtiwari31.doall |
 
@@ -54,6 +55,10 @@ Reviewers and testers use the hosted server, and the listing links to two of its
 - https://doall-api-m1yy.onrender.com/privacy and https://doall-api-m1yy.onrender.com/account/delete
 
 Render redeploys the API whenever the branch it tracks changes, so a missing page means the latest backend hasn't been deployed yet. Keep an uptime monitor requesting `/api/health` every 10 minutes ([root README](../../README.md#sleep-on-the-free-plan)) so a reviewer never waits for a cold start.
+
+### Sign in with Google
+
+If DoAll should offer **Continue with Google** from its first Play release, do steps 1–5 of [docs/google-sign-in.md](../google-sign-in.md) before building the bundle, so the build includes the client ID. Step 3 there needs the app signing key's fingerprint, which only exists after the first upload: add it before any tester tries Google sign-in from Google Play (see [step 5](#internal-testing-the-first-upload-and-play-app-signing)).
 
 ### Tools
 
@@ -99,7 +104,7 @@ Google Play only accepts new apps as an **Android App Bundle** (`.aab`) ([About 
 ### On GitHub Actions (recommended)
 
 1. On GitHub, open **Settings → Secrets and variables → Actions** and check:
-   - **Variables:** `DOALL_API_URL` = `https://doall-api-m1yy.onrender.com`, so the app talks to the hosted server and links to its privacy and deletion pages;
+   - **Variables:** `DOALL_API_URL` = `https://doall-api-m1yy.onrender.com`, so the app talks to the hosted server and links to its privacy and deletion pages, and for Google sign-in `DOALL_GOOGLE_WEB_CLIENT_ID` = the Web client ID;
    - **Secrets:** the four `ANDROID_UPLOAD_*` secrets from step 1.
 2. Check that `"version"` in [`mobile/package.json`](../../mobile/package.json) is `1.2.0`.
 3. **Actions → Android build → Run workflow**, enter `v1.2.0` in **release**, leave **play_track** at `none`, and run it.
@@ -111,7 +116,7 @@ A release run fails on purpose when the upload key secrets are missing, because 
 
 1. Set up the Android SDK as in the [root README](../../README.md#prerequisites).
 2. Copy the four lines from `~/.android-keys/doall-upload.properties` into `~/.gradle/gradle.properties` (on Windows, `%USERPROFILE%\.gradle\gradle.properties`). Use forward slashes in the keystore path on Windows, for example `DOALL_UPLOAD_STORE_FILE=C:/Users/you/.android-keys/doall-upload.jks`. Environment variables with the same names work too.
-3. Point the build at the hosted server, as CI does: in [`mobile/src/env.ts`](../../mobile/src/env.ts) change the value to `'https://doall-api-m1yy.onrender.com'`. Without this the app defaults to the emulator's local backend and links to a privacy policy on `10.0.2.2`. Undo the change after building; don't commit it.
+3. Point the build at the hosted server, as CI does: in `mobile/`, run `DOALL_API_URL=https://doall-api-m1yy.onrender.com DOALL_GOOGLE_WEB_CLIENT_ID=<Web client ID> node scripts/write-build-env.mjs` (leave out the Google variable to build without Google sign-in). It rewrites [`mobile/src/env.ts`](../../mobile/src/env.ts); without it the app defaults to the emulator's local backend and links to a privacy policy on `10.0.2.2`. Undo it after building with `git checkout src/env.ts`; don't commit it.
 4. Build:
 
    ```bash
@@ -171,7 +176,7 @@ Every DoAll screen past the welcome screen needs an account. Reviewers could reg
 2. Add six or so tasks that show the features: one overdue with high priority, one due in a few hours, one scheduled for tonight, one for next week with a tag such as `#admin`, one low-priority study task and one completed. Refresh them before each review so they don't all drift into *Overdue*.
 3. In **App content → Sign-in details → Start → + Add new instructions**, enter the email and password, and paste this into **Any other instructions**:
 
-   > DoAll needs an account. Sign in with the details above; the account already contains sample tasks. You can also create a new account from the welcome screen with any email address and a password of 8+ characters including a letter and a number (there is no email verification). The app uses DoAll's hosted server: if it has been idle, the first request can take up to a minute while the server wakes up. To try account deletion (Profile → Delete account), please create a new account first and keep the demo account.
+   > DoAll needs an account. Sign in with the details above; the account already contains sample tasks. You can also create a new account from the welcome screen with any email address and a password of 8+ characters including a letter and a number (there is no email verification), or with Continue with Google and any Google account. The app uses DoAll's hosted server: if it has been idle, the first request can take up to a minute while the server wakes up. To try account deletion (Profile → Delete account), please create a new account first and keep the demo account.
 
 Keep the demo account and its password unchanged for as long as the app is on Google Play, because every update is reviewed with it.
 
@@ -254,6 +259,7 @@ Each new release goes **internal testing → closed testing → production** the
 After this first upload:
 
 - **Test and release → App bundle explorer:** version code `10200`, target SDK 36, and no warnings. Play Console checks [16 KB page size](https://developer.android.com/guide/practices/page-sizes) compatibility here; DoAll's native code comes from React Native 0.87, which supports 16 KB pages ([React Native 0.77 notes](https://reactnative.dev/blog/2025/01/21/version-0.77)).
+- **Sign in with Google:** open **Test and release → App integrity → Play app signing**, copy the *App signing key certificate* SHA-1 and add it as an Android client in Google Cloud ([step 3 of the Google sign-in guide](../google-sign-in.md#3-create-the-android-clients-app)). Until then, Continue with Google fails in every copy installed from Google Play. Then try it from the internal testing install.
 - **Android developer verification** page, **Package names** tab: `io.github.gauravtiwari31.doall` should show as registered. Google registers Play apps automatically, and every Play package must be registered since 30 September 2026 ([registering Play package names](https://support.google.com/googleplay/android-developer/answer/16984799)). Register it there yourself if it isn't.
 - **The GitHub APK** is signed with the upload key, not with Google's app signing key. Android devices start requiring apps from verified developers outside Google Play in Brazil, Indonesia, Singapore and Thailand from 30 September 2026, and worldwide from 2027 ([developer verification](https://developer.android.com/developer-verification)). To keep the GitHub APK installable there, add the upload key's SHA-256 fingerprint (step 1) as an **additional key** on the same page. Play Console may ask for proof: a snippet it gives you goes into `android/app/src/main/assets/adi-registration.properties` in a release APK signed with that key ([adding additional keys](https://support.google.com/googleplay/android-developer/answer/16762301)).
 
@@ -323,7 +329,7 @@ If the key ever leaks, delete it under **Keys** in the Cloud console and create 
 | New apps and updates target Android 16 (API 36) since 31 August 2026 ([source](https://developer.android.com/google/play/requirements/target-sdk)) | `targetSdkVersion = 36` | [`mobile/android/build.gradle`](../../mobile/android/build.gradle) |
 | Native code supports 16 KB memory pages ([source](https://developer.android.com/guide/practices/page-sizes)) | React Native 0.87's native libraries support 16 KB pages; App bundle explorer confirms it per upload | [`mobile/package.json`](../../mobile/package.json) |
 | Privacy policy in Play Console and inside the app ([source](https://support.google.com/googleplay/android-developer/answer/10144311)) | Served by the API at `/privacy` and linked from the app | [`backend/src`](../../backend/src), [`mobile/src/config.ts`](../../mobile/src/config.ts) |
-| Account deletion in the app and on the web ([source](https://support.google.com/googleplay/android-developer/answer/13327111)) | **Profile → Delete account** (`DELETE /api/auth/me`) and the `/account/delete` page; both remove the account, every task and every session at once | [`backend/src/auth`](../../backend/src/auth), [`mobile/src/screens/ProfileScreen.tsx`](../../mobile/src/screens/ProfileScreen.tsx) |
+| Account deletion in the app and on the web ([source](https://support.google.com/googleplay/android-developer/answer/13327111)) | **Profile → Delete account** (`DELETE /api/auth/me`) and the `/account/delete` page, confirmed with the password or, for accounts created with Google, with Google; both remove the account, every task and every session at once | [`backend/src/auth`](../../backend/src/auth), [`backend/src/legal`](../../backend/src/legal), [`mobile/src/components/DeleteAccountSheet.tsx`](../../mobile/src/components/DeleteAccountSheet.tsx) |
 | Accurate Data safety answers ([source](https://support.google.com/googleplay/android-developer/answer/10787469)) | Answers derived from what the server and app actually store | [`data-safety.md`](data-safety.md) |
 | Data encrypted in transit | The hosted API is HTTPS | `DOALL_API_URL` repository variable, [`mobile/src/env.ts`](../../mobile/src/env.ts) |
 | On-device data stays on the device | App-private storage, excluded from cloud backup and device-to-device transfer | [`AndroidManifest.xml`](../../mobile/android/app/src/main/AndroidManifest.xml) |
@@ -359,6 +365,9 @@ Either the free Render instance was asleep (it sleeps after 15 minutes without t
 **People who installed the APK from GitHub.**
 - **1.0 and 1.1** use the old package `com.doall` and the debug signature. The Play version is a different app to Android, so both end up installed side by side. Ask people to uninstall the old DoAll first; their tasks are on the server, so they just log in again.
 - **1.2.0 and later** from GitHub are signed with the upload key, while Google Play delivers the app signed with Google's key. The two can't update each other: Google Play won't install over the GitHub copy and Android refuses the APK over the Play copy. Uninstall one before installing the other. To give GitHub users the same signature as Play, download the Google-signed universal APK from **App bundle explorer → Downloads** and attach it to the GitHub release instead.
+
+**Continue with Google works in the GitHub APK or your own build, but not in the app from Google Play.**
+Google Play re-signs the app with its app signing key, and Google only accepts sign-ins from fingerprints registered as Android clients. Add the *App signing key certificate* SHA-1 from **App integrity** as described in [docs/google-sign-in.md](../google-sign-in.md#3-create-the-android-clients-app); the Troubleshooting section there covers the other Google errors.
 
 **The workflow fails before building a release.**
 A tag push or a run with **release** set needs all four `ANDROID_UPLOAD_*` secrets, because a release has to be uploadable to Google Play. Run `npm run play:upload-key -- --github` (step 1), or leave **release** empty for a test build.

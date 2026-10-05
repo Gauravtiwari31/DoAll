@@ -25,7 +25,7 @@ Get it done
 • Light, dark or system theme
 
 Your account and your data
-DoAll needs an account (your name, an email address and a password) and an internet connection. Your tasks are saved to your account, so they are still there when you reinstall the app or sign in on another phone.
+DoAll needs an account and an internet connection: continue with Google, or sign up with your name, an email address and a password. Your tasks are saved to your account, so they are still there when you reinstall the app or sign in on another phone.
 • No ads, no analytics and no tracking
 • Your tasks are private to your account. There is no sharing between users.
 • The app talks to the DoAll server over an encrypted HTTPS connection.

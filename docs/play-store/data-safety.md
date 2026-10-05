@@ -12,8 +12,9 @@ Google's rules quoted below come from [Provide information for Google Play's Dat
 
 | Data | Where it lives | How long |
 |---|---|---|
-| Name and email address | DoAll server (MongoDB Atlas) | Until the account is deleted |
-| Password | Server keeps only a bcrypt hash; the password itself is never stored or readable | Until the account is deleted |
+| Name and email address, typed in or, with Sign in with Google, from the Google account the user chose | DoAll server (MongoDB Atlas) | Until the account is deleted |
+| Password, for accounts that use one | Server keeps only a bcrypt hash; the password itself is never stored or readable | Until the account is deleted |
+| Google account ID, for accounts that sign in with Google | DoAll server | Until the account is deleted |
 | Tasks: title, notes, scheduled date-time, deadline, priority, category, tags, completion status and time, created and updated times | DoAll server | Until the task or the account is deleted |
 | Sessions: SHA-256 hashes of refresh tokens with creation and expiry times, at most 5 devices | DoAll server | Until logout, expiry or account deletion |
 | IP address of each request | Server memory, briefly, for rate limiting (not stored by DoAll); may appear in the hosting provider's request logs | — |
@@ -23,7 +24,9 @@ Google's rules quoted below come from [Provide information for Google Play's Dat
 
 **Service providers** that process data on DoAll's behalf: **Render** (API hosting, Singapore region) and **MongoDB Atlas** (database hosting). Nothing is sold or given to anyone for their own purposes.
 
-**Deletion:** in the app (**Profile → Delete account**) or on the web at <https://doall-api-m1yy.onrender.com/account/delete>. Either one removes the account, every task and every session immediately and permanently.
+**Deletion:** in the app (**Profile → Delete account**) or on the web at <https://doall-api-m1yy.onrender.com/account/delete>, confirmed with the password or with Google. Either one removes the account, every task and every session immediately and permanently.
+
+**Sign in with Google:** when someone chooses a Google account, Google sends DoAll that account's name, email address and ID. DoAll sends Google nothing about the user, so this is collection by DoAll, not sharing with Google.
 
 ---
 
@@ -43,8 +46,8 @@ Google's rules quoted below come from [Provide information for Google Play's Dat
 |---|---|---|
 | Does your app collect or share any of the required user data types? | **Yes** | The account and the tasks are stored on the DoAll server. |
 | Is all of the user data collected by your app encrypted in transit? | **Yes** | The hosted API is only used over HTTPS. A server that someone runs themselves is theirs, not DoAll's, so data sent there isn't collected by DoAll. |
-| Which of the following methods of account creation does your app support? | **Username and password** | Email address plus password. No Google, social or one-time-code sign-in. |
-| Link users can use to request that their account and associated data is deleted | `https://doall-api-m1yy.onrender.com/account/delete` | Public page that names DoAll, explains what is deleted and lets people delete the account with their email and password, without reinstalling the app. |
+| Which of the following methods of account creation does your app support? | **Username and password** and **OAuth** | Email address plus password, or Sign in with Google (OAuth). No other social or one-time-code sign-in. If Google sign-in isn't set up yet when you fill in the form, select only **Username and password** and add OAuth once it's live. |
+| Link users can use to request that their account and associated data is deleted | `https://doall-api-m1yy.onrender.com/account/delete` | Public page that names DoAll, explains what is deleted and lets people delete the account with their email and password, or with Google, without reinstalling the app. |
 | Do you provide a way for users to request that some or all of their data is deleted, without requiring them to delete their account? | **Yes** | Any task can be deleted in the app (swipe left, or the trash button on a task), and **Profile → Clear completed** deletes all finished tasks. A separate link isn't needed for this, because it happens in the app; if Play Console refuses to save without one, answer **No** instead. |
 
 ---
@@ -55,9 +58,9 @@ Select exactly these five:
 
 | Category | Data type | What it is in DoAll |
 |---|---|---|
-| Personal info | **Name** | The display name entered at sign-up |
+| Personal info | **Name** | The display name entered at sign-up, or the Google account's name |
 | Personal info | **Email address** | The sign-in email |
-| Personal info | **User IDs** | The account ID the server assigns. The app sends it inside the access token with every request, and every task stores its owner's ID. |
+| Personal info | **User IDs** | The account ID the server assigns, and the Google account ID for accounts that sign in with Google. The app sends the account ID inside the access token with every request, and every task stores its owner's ID. |
 | Personal info | **Other info** | The password. Google has no separate type for credentials, and this is the closest fit. |
 | App activity | **Other user-generated content** | Tasks: titles, notes, dates, priority, category, tags and completion status |
 
@@ -85,13 +88,14 @@ Play Console asks four questions for each selected type. Give these answers:
 | Name | **Collected** only | **No** | **Required** | **App functionality**, **Account management** |
 | Email address | **Collected** only | **No** | **Required** | **App functionality**, **Account management** |
 | User IDs | **Collected** only | **No** | **Required** | **App functionality**, **Account management** |
-| Other info (password) | **Collected** only | **No** | **Required** | **App functionality**, **Account management** |
+| Other info (password) | **Collected** only | **No** | **Optional** | **App functionality**, **Account management** |
 | Other user-generated content (tasks) | **Collected** only | **No** | **Required** | **App functionality** |
 
 Notes on the answers that aren't obvious:
 
 - **Collected only, never shared.** Render and MongoDB Atlas store and serve the data on DoAll's instructions, which makes them service providers, not third parties.
 - **Password processed ephemerally: No.** The password itself is only used in memory, but a hash derived from it is stored for as long as the account exists.
+- **Password optional.** People who sign in with Google never give one. (If Google sign-in isn't live yet, answer **Required**.)
 - **Tasks are required.** There is no offline or local-only mode: the to-do list itself is the data stored on the server.
 - **Purposes.** Google defines App functionality as features of the app, including authenticating the user, and Account management as creating, signing in to and verifying an account. Nothing is used for analytics, developer communications, advertising, personalization or fraud prevention, so none of those are ticked. DoAll sends no emails, so Developer communications doesn't apply either.
 
@@ -111,7 +115,7 @@ Before saving, the preview of the listing's Data safety section should show:
 ## When these answers must change
 
 - **Adding an SDK** such as crash reporting, analytics or push notifications usually adds data types (crash logs, diagnostics, device or other IDs). Check the SDK's own Data safety guidance before releasing.
-- **Adding sign-in with Google or another provider** changes the account creation answer.
+- **Adding another sign-in provider** (Apple, Facebook…) changes the account creation answer, and the provider's data goes into the privacy policy.
 - **Letting people share tasks with each other** changes the content rating answers (users would interact) and possibly the purposes.
 - **Moving to another host or database** doesn't change the form as long as the new company is a service provider, but the privacy policy names the providers and must be updated.
 - **Self-hosted servers** are out of scope: data sent to a server someone runs for themselves never reaches DoAll.

@@ -2,7 +2,8 @@
 
 ### What's new in 1.2.0
 
-- **Delete your account** whenever you like: **Profile → Delete account** in the app, or [on the web](https://doall-api-m1yy.onrender.com/account/delete). Your account, all of your tasks and every sign-in session are removed immediately and permanently.
+- **Continue with Google**: sign up or log in with your Google account. If you already have a DoAll account with the same email address, enter its password once to connect the two.
+- **Delete your account** whenever you like: **Profile → Delete account** in the app, or [on the web](https://doall-api-m1yy.onrender.com/account/delete), confirming with your password or with Google. Your account, all of your tasks and every sign-in session are removed immediately and permanently.
 - **Privacy policy**, linked from the sign-up and profile screens ([read it here](https://doall-api-m1yy.onrender.com/privacy)).
 - **Ready for Google Play:** a new package ID (`io.github.gauravtiwari31.doall`), signed with a private release key, and a smaller, optimized build. The profile screen shows the app version.
 - Sheets with a text field (server address, delete account) now stay above the keyboard.
@@ -22,7 +23,7 @@ The server runs on a free plan and sleeps when nobody has used it for a while. I
 
 ### What's inside
 
-- Email/password accounts with short-lived access tokens and rotating refresh tokens
+- Email/password or Google accounts, with short-lived access tokens and rotating refresh tokens
 - Tasks with date-time, deadline, priority, category and tags
 - Smart sort (priority × deadline pressure × schedule) with an "Up next" pick and a per-task score breakdown
 - Today / Upcoming / Overdue / Done views, filters and search

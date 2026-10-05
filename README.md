@@ -47,7 +47,7 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 
 | | |
 |---|---|
-| **Register / log in** | Email + password accounts. Inline validation that mirrors the server rules, password strength meter, friendly server errors. |
+| **Register / log in** | Email + password accounts, or **Continue with Google**. Inline validation that mirrors the server rules, password strength meter, friendly server errors. |
 | **Add tasks** | Title, description, **date-time** (when you'll do it), **deadline**, **priority** — plus category and tags. One-tap presets (*Tonight*, *Tomorrow*, *In 3 days*…) or the native Android date & time pickers. |
 | **Complete tasks** | Tick the checkbox, **swipe right**, or use the detail screen. Every completion can be undone. |
 | **Delete tasks** | **Swipe left** (with an *Undo* toast) or delete from the detail screen (with confirmation). |
@@ -64,8 +64,9 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 - **Light, dark & system themes**, persisted on the device.
 - **Feels fast** — optimistic updates with automatic rollback, skeleton loaders, pull-to-refresh, animated cards and a haptic tick when you finish something.
 - **Hardened auth** — short-lived access tokens, rotating refresh tokens with reuse detection, rate limiting on credential endpoints, and a session that survives app restarts.
+- **Sign in with Google** — through Android's Credential Manager, verified on the server against Google's keys; an existing email account is connected only after its password is given once ([setup](docs/google-sign-in.md)).
 - **Housekeeping** — bulk "clear completed", discard-changes guard on the editor, Swagger docs for the API.
-- **Privacy controls** — delete your account and every task from **Profile → Delete account** or on the [web](https://doall-api-m1yy.onrender.com/account/delete); the [privacy policy](https://doall-api-m1yy.onrender.com/privacy) is linked from sign-up and the profile screen.
+- **Privacy controls** — delete your account and every task from **Profile → Delete account** or on the [web](https://doall-api-m1yy.onrender.com/account/delete), confirming with the password or with Google; the [privacy policy](https://doall-api-m1yy.onrender.com/privacy) is linked from sign-up and the profile screen.
 
 ---
 
@@ -215,10 +216,11 @@ Hosting the API means the APK works for anyone, anywhere, with no setup. You nee
 1. Sign up at [render.com](https://render.com) with GitHub and give it access to this repository.
 2. **New → Blueprint** → choose this repo. Render reads [`render.yaml`](render.yaml), asks for `MONGODB_URI` (paste the Atlas string) and generates the JWT secrets itself. Click **Apply**.
 3. When the deploy finishes, open `https://<your-service>.onrender.com/api/health`. It should return `{"status":"ok","db":"up"}`.
+4. Optional, for **Continue with Google**: create the OAuth clients and set `GOOGLE_CLIENT_ID` and `GOOGLE_CLIENT_SECRET` on the service, as described in [docs/google-sign-in.md](docs/google-sign-in.md).
 
 ### 3. Build an APK that uses it
 
-1. On GitHub, go to **Settings → Secrets and variables → Actions → Variables → New repository variable**: `DOALL_API_URL` = `https://<your-service>.onrender.com`.
+1. On GitHub, go to **Settings → Secrets and variables → Actions → Variables → New repository variable**: `DOALL_API_URL` = `https://<your-service>.onrender.com`. For Google sign-in, also add `DOALL_GOOGLE_WEB_CLIENT_ID` ([details](docs/google-sign-in.md#5-configure-the-app-build)).
 2. Create the release signing key once, from `mobile/`: `npm run play:upload-key -- --github` ([details](docs/play-store/README.md#1-create-the-upload-key)).
 3. **Actions → Android build → Run workflow** and enter the version from `mobile/package.json` in *release*, e.g. `v1.2.0`.
 4. About 15 minutes later the release has a `DoAll.apk` and a Google Play-ready `DoAll.aab` that talk to your hosted API by default. The server button still lets you switch to a local backend.
@@ -227,7 +229,10 @@ For a quick test build, leave *release* empty: the run's `DoAll-apk` artifact wo
 
 ### Sleep on the free plan
 
-Render's free instances spin down after **15 minutes** without traffic, and the next request takes roughly 30–60 seconds to wake them. The app softens this: it pings the server as soon as it opens and waits up to 30 seconds per request. To avoid cold starts entirely, have a free uptime monitor such as [UptimeRobot](https://uptimerobot.com) or [cron-job.org](https://cron-job.org) request `https://<your-service>.onrender.com/api/health` every 10 minutes. One always-on service fits within the free plan's 750 instance-hours a month.
+Render's free instances spin down after **15 minutes** without traffic, and waking one takes up to a minute ([Render's free plan](https://render.com/docs/free)). The app softens this: it pings the server as soon as it opens and waits up to 30 seconds per request.
+
+- **Never sleeps:** a paid instance (Render's *Starter*), or a server of your own such as Google Cloud's always-free `e2-micro` VM.
+- **Stopgap:** a free monitor such as [cron-job.org](https://cron-job.org) requesting `https://<your-service>.onrender.com/api/health` every 10 minutes keeps it awake, and one service running all month fits within the free 750 instance-hours. Render's staff discourage this on the free plan, and Render may change the rules, so don't build a launch on it. Ping `/api/health`, not `/robots.txt`: Render answers that one itself without waking the service.
 
 ---
 
@@ -241,7 +246,8 @@ DoAll is set up for Google Play as `io.github.gauravtiwari31.doall`. The step-by
 | Version code derived from `mobile/package.json` (`1.2.0` → `10200`) | [`app/build.gradle`](mobile/android/app/build.gradle) |
 | Target API 36, 16 KB page-size compatible native code, R8 shrinking | [`android/build.gradle`](mobile/android/build.gradle), [`app/build.gradle`](mobile/android/app/build.gradle) |
 | Privacy policy, linked in the app | [`/privacy`](https://doall-api-m1yy.onrender.com/privacy) ([source](backend/src/legal)) |
-| Account deletion in the app and on the web | **Profile → Delete account**, [`/account/delete`](https://doall-api-m1yy.onrender.com/account/delete) |
+| Account deletion in the app and on the web, also for Google accounts | **Profile → Delete account**, [`/account/delete`](https://doall-api-m1yy.onrender.com/account/delete) |
+| Sign in with Google (optional; OAuth clients in Google Cloud) | [docs/google-sign-in.md](docs/google-sign-in.md) |
 | Data safety answers | [docs/play-store/data-safety.md](docs/play-store/data-safety.md) |
 | Store listing text, icon, feature graphic and screenshots | [`mobile/fastlane/metadata/android/en-US`](mobile/fastlane/metadata/android/en-US) |
 | Optional automatic draft uploads to a Play track | `play_track` input of the Android build workflow |
@@ -290,6 +296,7 @@ sequenceDiagram
 - **Passwords** are hashed with bcrypt. **Refresh tokens** are stored only as SHA-256 hashes (bcrypt silently truncates at 72 bytes, which JWTs exceed).
 - **Rotation + reuse detection:** every refresh invalidates the old token. If an already-used token shows up again, every session for that user is revoked.
 - **Up to 5 devices** stay signed in at once; logout revokes just that device's session.
+- **Sign in with Google** ends in the same token pair. The app gets an ID token from Google's account chooser and sends it to `POST /auth/google`; the API checks Google's signature, the expiry and that the token was issued to its own client ID, then signs in, creating the account the first time. If an email/password account already has that address, the password is needed once to connect the two, so a Google account alone can't take over an account someone registered with that email.
 - **On the device**, an Axios interceptor adds the access token, refreshes it ~30 s before it expires, and on a `401` refreshes **once** (concurrent requests share the same in-flight refresh) and replays the request. If the refresh token is rejected, the user is returned to the login screen with a "session expired" notice.
 - Credential endpoints are **rate limited** (10 requests/min/IP); every task query is scoped to the caller, and another user's task id returns `404`, not `403`, so ids can't be probed.
 
@@ -321,16 +328,17 @@ All colours and type sizes come from [`mobile/src/theme`](mobile/src/theme); com
 
 ## API reference
 
-Base URL: `http://localhost:3000/api`. Every route except `auth/register`, `auth/login`, `auth/refresh`, `auth/logout` and `health` requires `Authorization: Bearer <accessToken>`.
+Base URL: `http://localhost:3000/api`. Every route except `auth/register`, `auth/login`, `auth/google`, `auth/refresh`, `auth/logout` and `health` requires `Authorization: Bearer <accessToken>`.
 
 | Method | Path | Description |
 |---|---|---|
 | `POST` | `/auth/register` | `{ name, email, password }` → `{ user, tokens }` |
 | `POST` | `/auth/login` | `{ email, password }` → `{ user, tokens }` |
+| `POST` | `/auth/google` | `{ idToken, password? }` → `{ user, tokens }`. `409` with `code: GOOGLE_LINK_PASSWORD_REQUIRED` when an email/password account already uses the address (send its `password` too); `501` when the server has no `GOOGLE_CLIENT_ID` |
 | `POST` | `/auth/refresh` | `{ refreshToken }` → new `{ user, tokens }` (old refresh token is revoked) |
 | `POST` | `/auth/logout` | `{ refreshToken }` → `204` |
 | `GET` | `/auth/me` | Current user |
-| `DELETE` | `/auth/me` | `{ password }` → `204`. Permanently deletes the account, its tasks and every session; a wrong password is `403` |
+| `DELETE` | `/auth/me` | `{ password }`, or `{ googleIdToken }` for an account without a password → `204`. Permanently deletes the account, its tasks and every session; a wrong confirmation is `403` |
 | `GET` | `/tasks` | List. Query: `status` (`all`/`active`/`completed`/`overdue`), `priority`, `category`, `tag`, `search`, `from`, `to`, `sort` (`smart`/`deadline`/`scheduled`/`priority`/`created`) |
 | `GET` | `/tasks/stats` | Counters; `tzOffset` (minutes, from `Date#getTimezoneOffset`) defines "today" |
 | `GET` | `/tasks/:id` | One task |
@@ -341,9 +349,9 @@ Base URL: `http://localhost:3000/api`. Every route except `auth/register`, `auth
 | `DELETE` | `/tasks/completed` | Delete every completed task → `{ deleted }` |
 | `GET` | `/health` | Liveness + database status |
 
-`tokens` is `{ accessToken, refreshToken, expiresIn }`, where `expiresIn` is the access token's lifetime in seconds. Validation errors return `400` with a `message` array; unknown fields are rejected. A deadline earlier than the scheduled time is rejected.
+`user` is `{ id, name, email, signInMethods, createdAt }`, where `signInMethods` lists `password` and/or `google`. `tokens` is `{ accessToken, refreshToken, expiresIn }`, where `expiresIn` is the access token's lifetime in seconds. Validation errors return `400` with a `message` array; unknown fields are rejected. A deadline earlier than the scheduled time is rejected.
 
-Two public web pages live outside `/api`: `GET /privacy` (privacy policy) and `GET /account/delete`, whose form (`POST /account/delete` with email, password and a confirmation) deletes an account without the app.
+Two public web pages live outside `/api`: `GET /privacy` (privacy policy) and `GET /account/delete`, whose form (`POST /account/delete` with email, password and a confirmation) deletes an account without the app. With `GOOGLE_CLIENT_SECRET` set, the page also offers **Signed up with Google?**: `POST /account/delete/google` sends the browser to Google's account chooser, and `GET /account/delete/google/callback` deletes the account Google confirms.
 
 ---
 
@@ -352,22 +360,22 @@ Two public web pages live outside `/api`: `GET /privacy` (privacy policy) and `G
 ```bash
 # backend
 cd backend
-npm test             # unit: smart ordering, auth service (rotation, reuse detection, account deletion), env validation, HTML escaping
+npm test             # unit: smart ordering, auth service (rotation, reuse detection, Google sign-in, account deletion), Google token checks, env validation, HTML escaping
 npm run test:e2e     # end-to-end against a real MongoDB (docker compose up -d mongo)
 npm run lint
 
 # mobile
 cd mobile
-npm test             # ordering, selectors, slices (incl. account deletion), validation, dates, URLs, API client refresh logic, TaskCard
+npm test             # ordering, selectors, slices (incl. Google sign-in and account deletion), Google sign-in service, validation, dates, URLs, API client refresh logic, TaskCard
 npm run typecheck
 npm run lint
 ```
 
 | Suite | Tests |
 |---|---|
-| Backend unit | 28 |
-| Backend e2e | 18 — registration, duplicates, validation, login, protected routes, refresh rotation & reuse detection, logout, CRUD, filters, search, smart sort, ownership isolation, stats, account deletion (app and web), privacy and deletion pages |
-| Mobile | 63 |
+| Backend unit | 51 |
+| Backend e2e | 30 — registration, duplicates, validation, login, protected routes, refresh rotation & reuse detection, logout, CRUD, filters, search, smart sort, ownership isolation, stats, account deletion (app and web), privacy and deletion pages, Google sign-in and connecting accounts, deletion with Google (app and web) |
+| Mobile | 75 |
 
 ---
 
@@ -378,5 +386,6 @@ npm run lint
 - **Plain HTTP is allowed for self-hosting.** The hosted API is HTTPS-only, but the server button can point the app at a backend on a laptop or LAN, so the app's [network security config](mobile/android/app/src/main/res/xml/network_security_config.xml) permits HTTP even in release builds. It only applies to an address the user typed in.
 - **Signing.** Release builds are signed with a private upload key kept outside the repository (CI reads it from secrets), and Google Play re-signs them with Play App Signing. Without the key, Gradle falls back to the debug keystore and warns that the build can't go to Google Play.
 - **Deleted accounts.** Deleting an account removes the user, every task and every session at once, and the API refuses any access token that belongs to a deleted account, so nothing new can be stored for it.
+- **Google sign-in without an SDK.** The app calls Android's Credential Manager through a small native module of its own ([`googlesignin/`](mobile/android/app/src/main/java/com/doall/googlesignin)) instead of a React Native library: Google deprecated the old Sign-In SDK that the free libraries wrap. The server uses Google's official `google-auth-library` to check tokens.
 - **Undo for delete** recreates the task with the same content and status (it gets a new id).
 - **Platform.** The app targets Android, per the brief. The iOS folder is the untouched React Native template.
