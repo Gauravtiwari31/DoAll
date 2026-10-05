@@ -1,5 +1,6 @@
 package com.doall
 
+import android.content.Intent
 import android.os.Bundle
 import com.facebook.react.ReactActivity
 import com.facebook.react.ReactActivityDelegate
@@ -18,6 +19,15 @@ class MainActivity : ReactActivity() {
   override fun onCreate(savedInstanceState: Bundle?) {
     supportFragmentManager.fragmentFactory = RNScreensFragmentFactory()
     super.onCreate(savedInstanceState)
+  }
+
+  /**
+   * A tapped reminder brings the running app forward with a new Intent naming
+   * the task. Keep it, so JavaScript can read it (RemindersModule.takeOpenedTaskId).
+   */
+  override fun onNewIntent(intent: Intent) {
+    super.onNewIntent(intent)
+    setIntent(intent)
   }
 
   /**

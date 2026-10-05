@@ -1,3 +1,5 @@
 <resources>
     <string name="app_name">DoAll</string>
+    <string name="reminders_channel_name">Task reminders</string>
+    <string name="reminders_channel_description">Reminders you set on your tasks</string>
 </resources>

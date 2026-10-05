@@ -15,3 +15,9 @@ export const HOSTED_API_URL: string | null = null;
  * as GOOGLE_CLIENT_ID on the server. See docs/google-sign-in.md.
  */
 export const GOOGLE_WEB_CLIENT_ID: string | null = null;
+
+/**
+ * Sentry DSN for crash reports (DOALL_SENTRY_DSN). Null: no crash reporting.
+ * Not a secret: it only lets the app send reports to that project.
+ */
+export const SENTRY_DSN: string | null = null;

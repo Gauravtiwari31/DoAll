@@ -12,6 +12,8 @@ export type AppStackParamList = {
   /** No id → create a new task. */
   TaskEditor: { id?: string } | undefined;
   Profile: undefined;
+  /** "Reminders not arriving?": phone settings that affect reminders. */
+  Reminders: undefined;
 };
 
 export type AuthScreenProps<T extends keyof AuthStackParamList> =

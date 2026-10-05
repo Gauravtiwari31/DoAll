@@ -46,6 +46,8 @@ describe('task validation', () => {
     priority: 'high' as const,
     category: 'work' as const,
     tags: [],
+    reminderOffset: null,
+    recurrence: null,
   };
 
   it('requires a title and a deadline after the start', () => {

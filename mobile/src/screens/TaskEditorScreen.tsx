@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { DateTimeField } from '../components/tasks/DateTimeField';
+import { ReminderRepeatFields } from '../components/tasks/ReminderRepeatFields';
 import { TagInput } from '../components/tasks/TagInput';
 import {
   AppText,
@@ -25,17 +26,21 @@ import {
 } from '../components/ui';
 import { selectTaskById } from '../features/tasks/selectors';
 import { CATEGORY_META, PRIORITY_META } from '../features/tasks/taskMeta';
+import { retargetRule } from '../features/tasks/recurrence';
 import { createTask, updateTask } from '../features/tasks/tasksSlice';
 import {
   CATEGORIES,
   Category,
   PRIORITIES,
   Priority,
+  Recurrence,
   Task,
   TaskInput,
 } from '../features/tasks/types';
 import { TaskFormErrors, validateTask } from '../features/tasks/validation';
 import { AppScreenProps } from '../navigation/types';
+import { device } from '../services/device';
+import { reminders } from '../services/reminders';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fonts, useTheme } from '../theme';
 import { DEADLINE_PRESETS, SCHEDULE_PRESETS } from '../utils/dates';
@@ -48,6 +53,8 @@ interface FormState {
   priority: Priority;
   category: Category;
   tags: string[];
+  reminderOffset: number | null;
+  recurrence: Recurrence | null;
 }
 
 /** New tasks start at the next half hour, medium priority, no deadline. */
@@ -62,6 +69,8 @@ function defaults(): FormState {
     priority: 'medium',
     category: 'personal',
     tags: [],
+    reminderOffset: null,
+    recurrence: null,
   };
 }
 
@@ -73,6 +82,8 @@ const fromTask = (task: Task): FormState => ({
   priority: task.priority,
   category: task.category,
   tags: task.tags,
+  reminderOffset: task.reminderOffset,
+  recurrence: task.recurrence,
 });
 
 const toInput = (form: FormState): TaskInput => ({
@@ -83,6 +94,8 @@ const toInput = (form: FormState): TaskInput => ({
   priority: form.priority,
   category: form.category,
   tags: form.tags,
+  reminderOffset: form.reminderOffset,
+  recurrence: form.recurrence,
 });
 
 export function TaskEditorScreen({
@@ -129,14 +142,46 @@ export function TaskEditorScreen({
     }
   }, [saved, navigation]);
 
+  // Repeats are planned on this phone's clock (see updateTask).
+  const [timeZone] = useState(device.timeZone);
+
   const set = <K extends keyof FormState>(key: K, value: FormState[K]) => {
-    setForm(prev => ({ ...prev, [key]: value }));
+    setForm(prev => {
+      const next = { ...prev, [key]: value };
+      // "Monthly on the 31st" follows the task to its new day.
+      if (key === 'scheduledAt' && next.recurrence) {
+        next.recurrence = retargetRule(
+          next.recurrence,
+          next.scheduledAt.getTime(),
+          timeZone,
+        );
+      }
+      return next;
+    });
     if (key === 'title' || key === 'deadline' || key === 'scheduledAt') {
       setErrors(prev => ({
         ...prev,
         title: key === 'title' ? undefined : prev.title,
         deadline: undefined,
       }));
+    }
+  };
+
+  /** Turning a reminder on is when DoAll asks to show notifications. */
+  const setReminder = async (offset: number | null) => {
+    set('reminderOffset', offset);
+    if (offset === null || !reminders.isAvailable()) {
+      return;
+    }
+    if (!(await reminders.requestPermission())) {
+      toast({
+        message: 'Notifications are off for DoAll, so reminders stay silent.',
+        tone: 'error',
+        action: {
+          label: 'Settings',
+          onPress: () => reminders.openSettings('notifications'),
+        },
+      });
     }
   };
 
@@ -248,6 +293,15 @@ export function TaskEditorScreen({
               error={errors.deadline}
             />
           </View>
+
+          <ReminderRepeatFields
+            reminderOffset={form.reminderOffset}
+            onReminderChange={setReminder}
+            recurrence={form.recurrence}
+            onRecurrenceChange={rule => set('recurrence', rule)}
+            scheduledAt={form.scheduledAt}
+            timeZone={timeZone}
+          />
 
           <View>
             <SectionLabel>Priority</SectionLabel>

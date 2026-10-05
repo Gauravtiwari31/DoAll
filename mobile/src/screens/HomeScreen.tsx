@@ -18,6 +18,7 @@ import { TaskSkeleton } from '../components/tasks/TaskSkeleton';
 import {
   Accent,
   AppText,
+  Banner,
   BrutalPressable,
   Chip,
   Icon,
@@ -34,6 +35,7 @@ import {
   selectViewCounts,
   selectVisibleTasks,
 } from '../features/tasks/selectors';
+import { syncNow } from '../features/sync/syncSlice';
 import { SORT_META, VIEW_META } from '../features/tasks/taskMeta';
 import {
   deleteTask,
@@ -41,16 +43,15 @@ import {
   resetFilters,
   restoreTask,
   setSearch,
-  setTaskCompleted,
   setView,
 } from '../features/tasks/tasksSlice';
 import { Task, TaskView, VIEWS } from '../features/tasks/types';
 import { useNow } from '../hooks/useNow';
+import { useToggleTask } from '../hooks/useToggleTask';
 import { AppScreenProps } from '../navigation/types';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { palette, shadowFor, useTheme } from '../theme';
 import { greeting } from '../utils/dates';
-import { tick } from '../utils/haptics';
 
 const EMPTY_COPY: Record<
   TaskView,
@@ -92,8 +93,10 @@ export function HomeScreen({ navigation }: AppScreenProps<'Home'>) {
 
   const user = useAppSelector(state => state.auth.user);
   const status = useAppSelector(state => state.tasks.status);
-  const refreshing = useAppSelector(state => state.tasks.refreshing);
   const error = useAppSelector(state => state.tasks.error);
+  const syncStatus = useAppSelector(state => state.sync.status);
+  const [refreshing, setRefreshing] = useState(false);
+  const toggleTask = useToggleTask();
   const filters = useAppSelector(selectFilters);
   const sort = useAppSelector(selectSort);
   const activeFilters = useAppSelector(selectActiveFilterCount);
@@ -102,7 +105,7 @@ export function HomeScreen({ navigation }: AppScreenProps<'Home'>) {
   const dashboard = useAppSelector(state => selectDashboard(state, now));
   const [sheetOpen, setSheetOpen] = useState(false);
 
-  // Home mounts once per sign-in: load the list fresh every time.
+  // Home mounts once per sign-in: load the phone's tasks (then sync starts).
   useEffect(() => {
     dispatch(fetchTasks());
   }, [dispatch]);
@@ -110,37 +113,6 @@ export function HomeScreen({ navigation }: AppScreenProps<'Home'>) {
   const openTask = useCallback(
     (task: Task) => navigation.navigate('TaskDetail', { id: task.id }),
     [navigation],
-  );
-
-  const toggleTask = useCallback(
-    (task: Task) => {
-      const completed = !task.completed;
-      if (completed) {
-        tick();
-      }
-      dispatch(setTaskCompleted({ task, completed }))
-        .unwrap()
-        .then(() => {
-          if (completed) {
-            toast({
-              message: 'Done and dusted.',
-              tone: 'success',
-              action: {
-                label: 'Undo',
-                onPress: () =>
-                  dispatch(
-                    setTaskCompleted({
-                      task: { ...task, completed: true },
-                      completed: false,
-                    }),
-                  ),
-              },
-            });
-          }
-        })
-        .catch((message: string) => toast({ message, tone: 'error' }));
-    },
-    [dispatch, toast],
   );
 
   const removeTask = useCallback(
@@ -195,6 +167,19 @@ export function HomeScreen({ navigation }: AppScreenProps<'Home'>) {
           </AppText>
         </BrutalPressable>
       </View>
+
+      {syncStatus === 'unverified' ? (
+        <Pressable
+          onPress={() => navigation.navigate('Profile')}
+          accessibilityRole="button"
+          accessibilityHint="Opens your profile, where you can resend the email"
+        >
+          <Banner
+            tone="info"
+            message="Confirm your email to back up your tasks. Check your inbox, or tap to resend the link."
+          />
+        </Pressable>
+      ) : null}
 
       <StatsHero
         todayTotal={dashboard.todayTotal}
@@ -343,18 +328,30 @@ export function HomeScreen({ navigation }: AppScreenProps<'Home'>) {
     [now, openTask, toggleTask, removeTask, dashboard.nextUp?.id],
   );
 
+  // Pulling down syncs with the server; the list itself is always on the phone.
   const refreshControl = useMemo(
     () => (
       <RefreshControl
         refreshing={refreshing}
-        onRefresh={() => {
-          dispatch(fetchTasks({ refresh: true }));
+        onRefresh={async () => {
+          setRefreshing(true);
+          const result = await dispatch(syncNow());
+          setRefreshing(false);
+          if (syncNow.rejected.match(result) && result.payload) {
+            toast({
+              message:
+                result.payload.kind === 'offline'
+                  ? "You're offline. Changes are saved on this phone and sync later."
+                  : result.payload.message,
+              tone: result.payload.kind === 'offline' ? 'info' : 'error',
+            });
+          }
         }}
         colors={[palette.ink]}
         progressBackgroundColor={palette.lime}
       />
     ),
-    [refreshing, dispatch],
+    [refreshing, dispatch, toast],
   );
 
   return (

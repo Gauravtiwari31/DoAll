@@ -4,6 +4,7 @@ import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { SignInMethod, signInMethodsOf } from '../api/authApi';
 import { DeleteAccountSheet } from '../components/DeleteAccountSheet';
+import { SyncCard } from '../components/SyncCard';
 import {
   Accent,
   AppText,
@@ -29,6 +30,7 @@ import { CATEGORIES } from '../features/tasks/types';
 import { useNow } from '../hooks/useNow';
 import { useOpenPrivacyPolicy } from '../hooks/useOpenPrivacyPolicy';
 import { AppScreenProps } from '../navigation/types';
+import { exportData } from '../services/exportData';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { palette, useTheme } from '../theme';
 
@@ -79,6 +81,8 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
   const openPrivacyPolicy = useOpenPrivacyPolicy();
   const now = useNow();
   const [deleteOpen, setDeleteOpen] = useState(false);
+  const [exporting, setExporting] = useState(false);
+  const pending = useAppSelector(state => state.sync.pending);
   const user = useAppSelector(state => state.auth.user);
   const themeMode = useAppSelector(state => state.preferences.themeMode);
   const stats = useAppSelector(state => selectDashboard(state, now));
@@ -108,11 +112,36 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
     }
   };
 
+  const onExport = async () => {
+    setExporting(true);
+    try {
+      if (await exportData(user)) {
+        toast({ message: 'Your tasks are saved.', tone: 'success' });
+      }
+    } catch (error) {
+      toast({
+        message: error instanceof Error ? error.message : "Couldn't save",
+        tone: 'error',
+      });
+    } finally {
+      setExporting(false);
+    }
+  };
+
+  // Logging out empties this phone's copy, so unsynced changes would be lost.
   const onLogout = async () => {
     const ok = await confirm({
       title: 'Log out?',
-      message: 'You can log back in any time.',
+      message:
+        pending > 0
+          ? `${pending} change${
+              pending === 1 ? " hasn't" : "s haven't"
+            } reached the server yet and will be lost. Sync first, or export your data, to keep ${
+              pending === 1 ? 'it' : 'them'
+            }.`
+          : 'Your tasks stay backed up. You can log back in any time.',
       confirmLabel: 'Log out',
+      destructive: pending > 0,
     });
     if (ok) {
       dispatch(logout());
@@ -163,6 +192,9 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
             ) : null}
           </View>
         </View>
+
+        <SectionLabel style={styles.section}>Backup & sync</SectionLabel>
+        <SyncCard />
 
         <SectionLabel style={styles.section}>Your numbers</SectionLabel>
         <View style={styles.grid}>
@@ -245,6 +277,17 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
           ]}
         />
 
+        <SectionLabel style={styles.section}>Reminders</SectionLabel>
+        <Button
+          title="Reminders not arriving?"
+          icon="bell"
+          iconPosition="left"
+          variant="outline"
+          size="md"
+          onPress={() => navigation.navigate('Reminders')}
+          testID="profile-reminders"
+        />
+
         <SectionLabel style={styles.section}>Housekeeping</SectionLabel>
         <View style={styles.actions}>
           <Button
@@ -271,6 +314,16 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
           {describeSignIn(signInMethodsOf(user))}
         </AppText>
         <View style={styles.actions}>
+          <Button
+            title="Export my data"
+            icon="download"
+            iconPosition="left"
+            variant="outline"
+            size="md"
+            loading={exporting}
+            onPress={onExport}
+            testID="profile-export"
+          />
           <Button
             title="Privacy policy"
             icon="lock"

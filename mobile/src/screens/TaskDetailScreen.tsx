@@ -15,18 +15,16 @@ import {
   useConfirm,
   useToast,
 } from '../components/ui';
+import { describeOffset } from '../features/reminders/planner';
+import { describeRule } from '../features/tasks/recurrence';
 import { isOverdue, selectTaskById } from '../features/tasks/selectors';
-import {
-  deleteTask,
-  restoreTask,
-  setTaskCompleted,
-} from '../features/tasks/tasksSlice';
+import { deleteTask, restoreTask } from '../features/tasks/tasksSlice';
 import { useNow } from '../hooks/useNow';
+import { useToggleTask } from '../hooks/useToggleTask';
 import { AppScreenProps } from '../navigation/types';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { palette, useTheme } from '../theme';
 import { describeDeadline, formatDateTime } from '../utils/dates';
-import { tick } from '../utils/haptics';
 
 function TimeCard({
   label,
@@ -68,6 +66,7 @@ export function TaskDetailScreen({
   const confirm = useConfirm();
   const toast = useToast();
   const now = useNow();
+  const toggleTask = useToggleTask({ announceReopen: true });
   const task = useAppSelector(state => selectTaskById(state, route.params.id));
 
   if (!task) {
@@ -94,20 +93,7 @@ export function TaskDetailScreen({
     ? describeDeadline(new Date(task.deadline), nowDate)
     : null;
 
-  const toggle = () => {
-    if (!task.completed) {
-      tick();
-    }
-    dispatch(setTaskCompleted({ task, completed: !task.completed }))
-      .unwrap()
-      .then(updated =>
-        toast({
-          message: updated.completed ? 'Marked as done' : 'Task reopened',
-          tone: 'success',
-        }),
-      )
-      .catch((message: string) => toast({ message, tone: 'error' }));
-  };
+  const toggle = () => toggleTask(task);
 
   const remove = async () => {
     const ok = await confirm({
@@ -252,6 +238,31 @@ export function TaskDetailScreen({
           />
         </View>
 
+        {task.recurrence || task.reminderOffset !== null ? (
+          <BrutalBox style={styles.extras} contentStyle={styles.extrasFace} offset={3}>
+            {task.recurrence ? (
+              <View style={styles.extraRow}>
+                <Icon name="repeat" size={16} color={t.colors.text} />
+                <AppText variant="bodyStrong" style={styles.flex}>
+                  {describeRule(
+                    task.recurrence,
+                    Date.parse(task.scheduledAt),
+                    task.timeZone,
+                  )}
+                </AppText>
+              </View>
+            ) : null}
+            {task.reminderOffset !== null ? (
+              <View style={styles.extraRow}>
+                <Icon name="bell" size={16} color={t.colors.text} />
+                <AppText variant="bodyStrong" style={styles.flex}>
+                  {`Reminder: ${describeOffset(task.reminderOffset).toLowerCase()}`}
+                </AppText>
+              </View>
+            ) : null}
+          </BrutalBox>
+        ) : null}
+
         {!task.completed ? (
           <View style={styles.section}>
             <SectionLabel>Why it's ranked here</SectionLabel>
@@ -279,7 +290,13 @@ export function TaskDetailScreen({
 
       <View style={[styles.footer, { paddingBottom: insets.bottom + 16 }]}>
         <Button
-          title={task.completed ? 'Reopen task' : 'Mark as done'}
+          title={
+            task.completed
+              ? 'Reopen task'
+              : task.recurrence
+              ? 'Done, move to next'
+              : 'Mark as done'
+          }
           icon={task.completed ? 'refresh' : 'check'}
           variant={task.completed ? 'outline' : 'highlight'}
           onPress={toggle}
@@ -334,6 +351,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   section: { marginTop: 28 },
+  extras: { marginTop: 12 },
+  extrasFace: { padding: 12, gap: 8 },
+  extraRow: { flexDirection: 'row', alignItems: 'center', gap: 10 },
   historyLine: { marginTop: 4 },
   footer: { position: 'absolute', left: 20, right: 20, bottom: 0 },
   missing: { flex: 1, alignItems: 'center', justifyContent: 'center', gap: 16 },

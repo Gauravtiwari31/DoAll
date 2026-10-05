@@ -182,3 +182,15 @@ dependencies {
     // kotlinVersion this React Native version uses (android/build.gradle).
     implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
 }
+
+/**
+ * Crash reports from release builds point into minified JavaScript. With a
+ * Sentry auth token (CI secret SENTRY_AUTH_TOKEN, plus SENTRY_ORG and
+ * SENTRY_PROJECT), Sentry's script uploads the build's source maps so reports
+ * show the original code. Without one, builds don't depend on Sentry at all.
+ */
+if (System.getenv("SENTRY_AUTH_TOKEN")) {
+    def sentryPackage = ["node", "--print", "require.resolve('@sentry/react-native/package.json')"]
+        .execute(null, rootDir).text.trim()
+    apply from: new File(sentryPackage, "../sentry.gradle")
+}

@@ -13,6 +13,11 @@ export interface User {
    * those accounts all have a password (see `signInMethodsOf`).
    */
   signInMethods?: SignInMethod[];
+  /**
+   * Whether the address is confirmed. Missing from older servers and cached
+   * profiles: the sync answer is what really decides (see syncSlice).
+   */
+  emailVerified?: boolean;
   createdAt: string;
 }
 
@@ -62,6 +67,13 @@ export const authApi = {
     api.post<void>('/auth/logout', { refreshToken }),
 
   me: () => api.get<User>('/auth/me').then(r => r.data),
+
+  /** Emails a password reset link, if the address has an account. */
+  forgotPassword: (email: string) =>
+    api.post<void>('/auth/password/forgot', { email }),
+
+  /** Emails a new link to confirm the signed-in user's address. */
+  resendVerification: () => api.post<void>('/auth/verify-email/resend'),
 
   /** Permanently deletes the account and all its tasks. */
   deleteAccount: (confirmation: DeletionConfirmation) =>

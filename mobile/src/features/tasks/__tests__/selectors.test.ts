@@ -3,6 +3,7 @@ import authReducer from '../../auth/authSlice';
 import preferencesReducer, {
   setSort,
 } from '../../preferences/preferencesSlice';
+import syncReducer from '../../sync/syncSlice';
 import {
   matchesFilters,
   matchesView,
@@ -54,6 +55,7 @@ function storeWith() {
     reducer: {
       auth: authReducer,
       tasks: tasksReducer,
+      sync: syncReducer,
       preferences: preferencesReducer,
     },
   });

@@ -147,6 +147,22 @@ function TaskCardComponent({
                 <AppText variant="mono" color="textMuted">
                   {formatDateTime(new Date(task.scheduledAt), nowDate)}
                 </AppText>
+                {task.recurrence ? (
+                  <Icon
+                    name="repeat"
+                    size={13}
+                    color={t.colors.textMuted}
+                    strokeWidth={2.4}
+                  />
+                ) : null}
+                {task.reminderOffset !== null && !task.completed ? (
+                  <Icon
+                    name="bell"
+                    size={13}
+                    color={t.colors.textMuted}
+                    strokeWidth={2.4}
+                  />
+                ) : null}
               </View>
               {deadline && !task.completed ? (
                 <View style={styles.metaItem}>

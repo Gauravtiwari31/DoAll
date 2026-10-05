@@ -13,7 +13,9 @@ import {
   isForbidden,
   isNetworkError,
 } from '../../api/errors';
+import { getTaskStore } from '../../db';
 import { googleSignIn } from '../../services/googleSignIn';
+import { reminders } from '../../services/reminders';
 import { session } from '../../services/session';
 import { STORAGE_KEYS, storage } from '../../services/storage';
 
@@ -121,16 +123,23 @@ export const signInWithGoogle = createAsyncThunk<
 });
 
 /**
- * Drops the tokens and the cached profile from the device, and lets Google
- * forget the account chosen last time.
+ * Drops the tokens, the cached profile, the tasks on the phone and their
+ * reminders, and lets Google forget the account chosen last time.
  */
 const forgetSession = async () => {
   await session.clear();
   await storage.remove(STORAGE_KEYS.user);
   await googleSignIn.signOut();
+  await reminders.clear().catch(() => undefined);
+  await getTaskStore()
+    .then(store => store.clear())
+    .catch(() => undefined);
 };
 
-/** Revokes the refresh token server-side (best effort) and forgets it locally. */
+/**
+ * Revokes the refresh token server-side (best effort) and forgets everything
+ * locally, including changes not yet synced: the profile screen warns first.
+ */
 export const logout = createAsyncThunk('auth/logout', async () => {
   const current = session.get();
   if (current) {
@@ -160,6 +169,19 @@ export const deleteAccount = createAsyncThunk<
   }
   await forgetSession();
 });
+
+/**
+ * Refreshes the profile, e.g. to see whether the email address was confirmed
+ * in the meantime. Offline it simply keeps the cached one.
+ */
+export const refreshProfile = createAsyncThunk<User>(
+  'auth/refreshProfile',
+  async () => {
+    const user = await authApi.me();
+    await storage.set(STORAGE_KEYS.user, user);
+    return user;
+  },
+);
 
 /** Where logout and account deletion end: signed out, nothing kept, no notice. */
 const signedOut = (): AuthState => ({ ...initialState, status: 'signedOut' });
@@ -192,6 +214,11 @@ const authSlice = createSlice({
       })
       .addCase(logout.fulfilled, signedOut)
       .addCase(deleteAccount.fulfilled, signedOut)
+      .addCase(refreshProfile.fulfilled, (state, { payload }) => {
+        if (state.status === 'signedIn') {
+          state.user = payload;
+        }
+      })
       // The Google button shows its own progress, so `submitting` stays off.
       .addCase(signInWithGoogle.fulfilled, (state, { payload }) => {
         state.user = payload;

@@ -8,6 +8,7 @@ import Svg, { Path } from 'react-native-svg';
  */
 const ICONS = {
   plus: ['M12 5v14', 'M5 12h14'],
+  minus: ['M5 12h14'],
   check: ['M5 12.5l4.5 4.5L19 7.5'],
   checks: ['M2 12.5l4.5 4.5L15 8.5', 'M10.5 16l1 1L21 7.5'],
   x: ['M6 6l12 12', 'M18 6L6 18'],
@@ -79,6 +80,15 @@ const ICONS = {
   bolt: ['M13 2L4 14h7l-1 8 9-12h-7z'],
   server: ['M4 4h16v6H4z', 'M4 14h16v6H4z', 'M8 7h.01', 'M8 17h.01'],
   grid: ['M4 4h7v7H4z', 'M13 4h7v7h-7z', 'M4 13h7v7H4z', 'M13 13h7v7h-7z'],
+  bell: ['M6 16v-5a6 6 0 0 1 12 0v5l2 2H4z', 'M10 21h4'],
+  repeat: [
+    'M17 2l3 3-3 3',
+    'M4 11V9a4 4 0 0 1 4-4h12',
+    'M7 22l-3-3 3-3',
+    'M20 13v2a4 4 0 0 1-4 4H4',
+  ],
+  download: ['M12 4v11', 'M7 10l5 5 5-5', 'M5 20h14'],
+  cloud: ['M7 18h10a4 4 0 0 0 .5-7.97A6 6 0 0 0 6.1 9.6 4.2 4.2 0 0 0 7 18z'],
 } as const;
 
 export type IconName = keyof typeof ICONS;

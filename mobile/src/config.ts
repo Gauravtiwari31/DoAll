@@ -3,6 +3,7 @@ import { version } from '../package.json';
 import {
   GOOGLE_WEB_CLIENT_ID as BUILD_GOOGLE_CLIENT_ID,
   HOSTED_API_URL,
+  SENTRY_DSN as BUILD_SENTRY_DSN,
 } from './env';
 import { normalizeApiUrl, siteOrigin } from './utils/url';
 
@@ -42,6 +43,9 @@ export const ACCOUNT_DELETION_URL = `${SITE_URL}/account/delete`;
  */
 export const GOOGLE_WEB_CLIENT_ID: string | null =
   BUILD_GOOGLE_CLIENT_ID?.trim() || null;
+
+/** Where crash reports go; null in builds without one (no crash reporting). */
+export const SENTRY_DSN: string | null = BUILD_SENTRY_DSN?.trim() || null;
 
 /**
  * Abort requests that hang (bad Wi-Fi, server down) instead of spinning

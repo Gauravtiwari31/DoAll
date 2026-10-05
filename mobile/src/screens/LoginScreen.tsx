@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, TextInputInstance } from 'react-native';
+import { Pressable, StyleSheet, TextInputInstance } from 'react-native';
 import { AuthLayout } from '../components/AuthLayout';
+import { ForgotPasswordSheet } from '../components/ForgotPasswordSheet';
 import { GoogleSignInSection } from '../components/GoogleSignInSection';
 import { PasswordToggle } from '../components/PasswordToggle';
 import { Accent, AppText, Banner, Button, TextField } from '../components/ui';
@@ -21,6 +22,7 @@ export function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
   const [errors, setErrors] = useState<FieldErrors<LoginForm>>({});
   const [serverError, setServerError] = useState<string | null>(null);
   const [showPassword, setShowPassword] = useState(false);
+  const [forgotOpen, setForgotOpen] = useState(false);
   const passwordRef = useRef<TextInputInstance>(null);
 
   // The "session expired" notice is shown once, then forgotten.
@@ -113,6 +115,17 @@ export function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
         }
         testID="login-password"
       />
+      <Pressable
+        onPress={() => setForgotOpen(true)}
+        hitSlop={8}
+        style={styles.forgot}
+        accessibilityRole="button"
+        testID="login-forgot"
+      >
+        <AppText variant="bodyStrong" color="textMuted">
+          Forgot password?
+        </AppText>
+      </Pressable>
 
       {serverError ? <Banner message={serverError} /> : null}
 
@@ -126,6 +139,16 @@ export function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
       />
 
       <GoogleSignInSection policyNote />
+
+      <ForgotPasswordSheet
+        visible={forgotOpen}
+        onClose={() => setForgotOpen(false)}
+        initialEmail={form.email.trim()}
+      />
     </AuthLayout>
   );
 }
+
+const styles = StyleSheet.create({
+  forgot: { alignSelf: 'flex-end', marginTop: -6 },
+});

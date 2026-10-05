@@ -1,6 +1,7 @@
 package com.doall
 
 import android.app.Application
+import com.doall.device.DevicePackage
 import com.doall.googlesignin.GoogleSignInPackage
 import com.facebook.react.PackageList
 import com.facebook.react.ReactApplication
@@ -17,6 +18,7 @@ class MainApplication : Application(), ReactApplication {
         PackageList(this).packages.apply {
           // The app's own native code (libraries are autolinked).
           add(GoogleSignInPackage())
+          add(DevicePackage())
         },
     )
   }

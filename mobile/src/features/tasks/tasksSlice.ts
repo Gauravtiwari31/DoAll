@@ -5,15 +5,19 @@ import {
   isAnyOf,
   PayloadAction,
 } from '@reduxjs/toolkit';
-import { getErrorMessage } from '../../api/errors';
-import { tasksApi } from '../../api/tasksApi';
+import { getTaskStore } from '../../db';
+import { device } from '../../services/device';
+import type { RootState } from '../../store';
 import {
   deleteAccount,
   login,
   logout,
   register,
   sessionExpired,
+  signInWithGoogle,
 } from '../auth/authSlice';
+import { pulledWhileUnverified, syncNow } from '../sync/syncSlice';
+import { nextOccurrence, sameRule } from './recurrence';
 import {
   Category,
   Priority,
@@ -25,8 +29,12 @@ import {
 
 /**
  * Tasks are stored normalised (ids + entities) so single-task updates are O(1)
- * and don't re-render unrelated rows. Toggling and deleting are optimistic:
- * the UI changes immediately and rolls back if the server disagrees.
+ * and don't re-render unrelated rows.
+ *
+ * The phone's database is the source of truth: every change is saved there
+ * first (instantly, offline too), then shown, and sync sends it to the server
+ * in the background. Toggling and deleting also change the list before the
+ * save finishes, and roll back if it fails.
  */
 export const tasksAdapter = createEntityAdapter<Task>();
 
@@ -35,7 +43,6 @@ export type LoadStatus = 'idle' | 'loading' | 'succeeded' | 'failed';
 export interface TasksState
   extends ReturnType<typeof tasksAdapter.getInitialState> {
   status: LoadStatus;
-  refreshing: boolean;
   error: string | null;
   filters: TaskFilters;
 }
@@ -49,32 +56,69 @@ export const initialFilters: TaskFilters = {
 
 const initialState: TasksState = tasksAdapter.getInitialState({
   status: 'idle',
-  refreshing: false,
   error: null,
   filters: initialFilters,
 });
 
-type Reject = { rejectValue: string };
+type ThunkConfig = { state: RootState; rejectValue: string };
 
-export const fetchTasks = createAsyncThunk<
-  Task[],
-  { refresh?: boolean } | void,
-  Reject
->('tasks/fetch', async (_arg, { rejectWithValue }) => {
-  try {
-    return await tasksApi.list();
-  } catch (error) {
-    return rejectWithValue(getErrorMessage(error));
-  }
-});
+const SAVE_FAILED = "Couldn't save on this phone. Please try again.";
 
-export const createTask = createAsyncThunk<Task, TaskInput, Reject>(
+/**
+ * A change's timestamp: now, but always after the task's previous change, so
+ * sync orders this phone's edits correctly even if its clock went backwards.
+ */
+export const stamp = (previous?: string | null) =>
+  new Date(
+    Math.max(Date.now(), previous ? Date.parse(previous) + 1 : 0),
+  ).toISOString();
+
+/** The task as the store has it now (it may have changed since a screen read it). */
+const latest = (state: RootState, task: Task) =>
+  state.tasks.entities[task.id] ?? task;
+
+/**
+ * Loads the signed-in account's tasks from the phone. The database is handed
+ * to this account first: if someone else used it, their tasks go.
+ */
+export const fetchTasks = createAsyncThunk<Task[], void, ThunkConfig>(
+  'tasks/fetch',
+  async (_arg, { getState, rejectWithValue }) => {
+    const user = getState().auth.user;
+    if (!user) {
+      return rejectWithValue('Not signed in');
+    }
+    try {
+      const store = await getTaskStore();
+      await store.claim(user.id);
+      return await store.all();
+    } catch (error) {
+      if (__DEV__) {
+        console.warn('Loading tasks failed:', error);
+      }
+      return rejectWithValue("Couldn't open your tasks on this phone");
+    }
+  },
+);
+
+export const createTask = createAsyncThunk<Task, TaskInput, ThunkConfig>(
   'tasks/create',
   async (input, { rejectWithValue }) => {
+    const now = stamp();
+    const task: Task = {
+      ...input,
+      id: device.newId(),
+      completed: false,
+      completedAt: null,
+      timeZone: device.timeZone(),
+      createdAt: now,
+      updatedAt: now,
+    };
     try {
-      return await tasksApi.create(input);
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
+      await (await getTaskStore()).save(task);
+      return task;
+    } catch {
+      return rejectWithValue(SAVE_FAILED);
     }
   },
 );
@@ -82,79 +126,124 @@ export const createTask = createAsyncThunk<Task, TaskInput, Reject>(
 export const updateTask = createAsyncThunk<
   Task,
   { id: string; changes: Partial<TaskInput> },
-  Reject
->('tasks/update', async ({ id, changes }, { rejectWithValue }) => {
+  ThunkConfig
+>('tasks/update', async ({ id, changes }, { getState, rejectWithValue }) => {
+  const current = getState().tasks.entities[id];
+  if (!current) {
+    return rejectWithValue('This task no longer exists');
+  }
+  const next: Task = { ...current, ...changes, updatedAt: stamp(current.updatedAt) };
+  // A new time was picked on this phone's clock: repeats follow this phone's zone.
+  const rescheduled =
+    next.scheduledAt !== current.scheduledAt ||
+    !sameRule(next.recurrence, current.recurrence);
+  if (rescheduled) {
+    next.timeZone = device.timeZone();
+  }
   try {
-    return await tasksApi.update(id, changes);
-  } catch (error) {
-    return rejectWithValue(getErrorMessage(error));
+    await (await getTaskStore()).save(next);
+    return next;
+  } catch {
+    return rejectWithValue(SAVE_FAILED);
   }
 });
 
-/** Optimistic: see the `pending` / `rejected` reducers below. */
+/**
+ * Ticks a task off, or back on. A repeating task isn't marked done: it moves
+ * on to its next occurrence (the deadline moves with it). The result tells
+ * which happened: it is still open, with a later scheduledAt.
+ */
 export const setTaskCompleted = createAsyncThunk<
   Task,
   { task: Task; completed: boolean },
-  Reject
->('tasks/setCompleted', async ({ task, completed }, { rejectWithValue }) => {
-  try {
-    return await tasksApi.setCompleted(task.id, completed);
-  } catch (error) {
-    return rejectWithValue(getErrorMessage(error));
-  }
-});
+  ThunkConfig
+>(
+  'tasks/setCompleted',
+  async ({ task, completed }, { getState, rejectWithValue }) => {
+    const current = latest(getState(), task);
+    const updatedAt = stamp(current.updatedAt);
+    let next: Task = {
+      ...current,
+      completed,
+      completedAt: completed ? updatedAt : null,
+      updatedAt,
+    };
+    if (completed && current.recurrence) {
+      const start = Date.parse(current.scheduledAt);
+      const following = nextOccurrence(
+        start,
+        current.recurrence,
+        current.timeZone,
+        Math.max(start, Date.now()),
+      );
+      if (following !== null) {
+        const shift = following - start;
+        next = {
+          ...current,
+          scheduledAt: new Date(following).toISOString(),
+          deadline: current.deadline
+            ? new Date(Date.parse(current.deadline) + shift).toISOString()
+            : null,
+          updatedAt,
+        };
+      }
+    }
+    try {
+      await (await getTaskStore()).save(next);
+      return next;
+    } catch {
+      return rejectWithValue(SAVE_FAILED);
+    }
+  },
+);
 
-/** Optimistic: removed from the list at once, restored if the request fails. */
-export const deleteTask = createAsyncThunk<void, Task, Reject>(
+/** Optimistic: removed from the list at once, restored if the save fails. */
+export const deleteTask = createAsyncThunk<void, Task, ThunkConfig>(
   'tasks/delete',
   async (task, { rejectWithValue }) => {
     try {
-      await tasksApi.remove(task.id);
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
+      await (await getTaskStore()).remove(task.id, stamp(task.updatedAt));
+    } catch {
+      return rejectWithValue(SAVE_FAILED);
     }
   },
 );
 
-/** "Undo" for a delete: re-creates the task with the same content and status. */
-export const restoreTask = createAsyncThunk<Task, Task, Reject>(
+/** "Undo" for a delete: brings the task back as it was. */
+export const restoreTask = createAsyncThunk<Task, Task, ThunkConfig>(
   'tasks/restore',
   async (task, { rejectWithValue }) => {
     try {
-      const {
-        title,
-        description,
-        scheduledAt,
-        deadline,
-        priority,
-        category,
-        tags,
-      } = task;
-      const created = await tasksApi.create({
-        title,
-        description,
-        scheduledAt,
-        deadline,
-        priority,
-        category,
-        tags,
-      });
-      return task.completed
-        ? await tasksApi.setCompleted(created.id, true)
-        : created;
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
+      const store = await getTaskStore();
+      // After the deletion, so the server takes the restore over it.
+      const deleted = await store.get(task.id);
+      const restored = {
+        ...task,
+        updatedAt: stamp(deleted?.updatedAt ?? task.updatedAt),
+      };
+      await store.save(restored);
+      return restored;
+    } catch {
+      return rejectWithValue(SAVE_FAILED);
     }
   },
 );
 
-export const clearCompleted = createAsyncThunk<number, void, Reject>(
+/** Deletes every completed task; resolves with their IDs. */
+export const clearCompleted = createAsyncThunk<string[], void, ThunkConfig>(
   'tasks/clearCompleted',
-  async (_arg, { rejectWithValue }) => {
+  async (_arg, { getState, rejectWithValue }) => {
+    const done = Object.values(getState().tasks.entities).filter(
+      task => task.completed,
+    );
     try {
-      return (await tasksApi.clearCompleted()).deleted;
-    } catch (error) {
-      return rejectWithValue(getErrorMessage(error));
+      const store = await getTaskStore();
+      for (const task of done) {
+        await store.remove(task.id, stamp(task.updatedAt));
+      }
+      return done.map(task => task.id);
+    } catch {
+      return rejectWithValue(SAVE_FAILED);
     }
   },
 );
@@ -181,29 +270,27 @@ const tasksSlice = createSlice({
   },
   extraReducers: builder => {
     builder
-      // ---- fetch -----------------------------------------------------------
-      .addCase(fetchTasks.pending, (state, { meta }) => {
-        if (meta.arg && meta.arg.refresh) {
-          state.refreshing = true;
-        } else {
-          state.status = 'loading';
-        }
+      // ---- load from the phone ---------------------------------------------
+      .addCase(fetchTasks.pending, state => {
+        state.status = 'loading';
         state.error = null;
       })
       .addCase(fetchTasks.fulfilled, (state, { payload }) => {
         tasksAdapter.setAll(state, payload);
         state.status = 'succeeded';
-        state.refreshing = false;
       })
       .addCase(fetchTasks.rejected, (state, { payload }) => {
         state.status = 'failed';
-        state.refreshing = false;
-        state.error = payload ?? 'Could not load tasks';
+        state.error = payload ?? "Couldn't open your tasks";
       })
 
       // ---- complete / un-complete (optimistic) -----------------------------
       .addCase(setTaskCompleted.pending, (state, { meta }) => {
         const { task, completed } = meta.arg;
+        // A repeating task moves on instead, once saved.
+        if (completed && task.recurrence) {
+          return;
+        }
         tasksAdapter.updateOne(state, {
           id: task.id,
           changes: {
@@ -228,14 +315,20 @@ const tasksSlice = createSlice({
         tasksAdapter.addOne(state, meta.arg);
       })
 
-      .addCase(clearCompleted.fulfilled, state => {
-        const doneIds = Object.values(state.entities)
-          .filter(task => task.completed)
-          .map(task => task.id);
-        tasksAdapter.removeMany(state, doneIds);
+      .addCase(clearCompleted.fulfilled, (state, { payload }) => {
+        tasksAdapter.removeMany(state, payload);
       })
 
-      // Server responses are the source of truth for these.
+      // What sync brought from the server.
+      .addMatcher(
+        isAnyOf(syncNow.fulfilled, pulledWhileUnverified),
+        (state, { payload }) => {
+          tasksAdapter.upsertMany(state, payload.saved);
+          tasksAdapter.removeMany(state, payload.removed);
+        },
+      )
+
+      // The saved versions.
       .addMatcher(
         isAnyOf(
           createTask.fulfilled,
@@ -248,9 +341,8 @@ const tasksSlice = createSlice({
         },
       )
 
-      // Never leak one user's tasks into the next session. Signing in also
-      // resets, so a request that failed after the session expired can't
-      // leave the next session stuck in an error state.
+      // Never leak one user's tasks into the next session. The phone's
+      // database is emptied on logout too (see store/listeners.ts).
       .addMatcher(
         isAnyOf(
           logout.fulfilled,
@@ -258,6 +350,7 @@ const tasksSlice = createSlice({
           sessionExpired,
           login.fulfilled,
           register.fulfilled,
+          signInWithGoogle.fulfilled,
         ),
         () => initialState,
       );

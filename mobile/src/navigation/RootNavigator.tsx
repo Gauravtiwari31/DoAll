@@ -3,13 +3,16 @@ import {
   DefaultTheme,
   NavigationContainer,
   Theme as NavTheme,
+  useNavigationContainerRef,
 } from '@react-navigation/native';
 import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import React, { useMemo } from 'react';
+import { useAppLifecycle } from '../hooks/useAppLifecycle';
 import { HomeScreen } from '../screens/HomeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { ProfileScreen } from '../screens/ProfileScreen';
 import { RegisterScreen } from '../screens/RegisterScreen';
+import { RemindersScreen } from '../screens/RemindersScreen';
 import { SplashScreen } from '../screens/SplashScreen';
 import { TaskDetailScreen } from '../screens/TaskDetailScreen';
 import { TaskEditorScreen } from '../screens/TaskEditorScreen';
@@ -29,6 +32,8 @@ const AppStack = createNativeStackNavigator<AppStackParamList>();
 export function RootNavigator() {
   const status = useAppSelector(state => state.auth.status);
   const theme = useTheme();
+  const navigationRef = useNavigationContainerRef<AppStackParamList>();
+  useAppLifecycle(navigationRef);
 
   // Keep react-navigation's own surfaces (transitions, overscroll) on-palette.
   const navTheme = useMemo<NavTheme>(() => {
@@ -57,7 +62,7 @@ export function RootNavigator() {
   };
 
   return (
-    <NavigationContainer theme={navTheme}>
+    <NavigationContainer ref={navigationRef} theme={navTheme}>
       {status === 'signedIn' ? (
         <AppStack.Navigator screenOptions={screenOptions}>
           <AppStack.Screen name="Home" component={HomeScreen} />
@@ -68,6 +73,7 @@ export function RootNavigator() {
             options={{ animation: 'slide_from_bottom' }}
           />
           <AppStack.Screen name="Profile" component={ProfileScreen} />
+          <AppStack.Screen name="Reminders" component={RemindersScreen} />
         </AppStack.Navigator>
       ) : (
         <AuthStack.Navigator screenOptions={screenOptions}>
