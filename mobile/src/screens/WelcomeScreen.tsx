@@ -1,5 +1,6 @@
 import React from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
+import { GoogleSignInSection } from '../components/GoogleSignInSection';
 import { ServerButton } from '../components/ServerSettings';
 import { PrioritySticker } from '../components/tasks/TaskBadges';
 import {
@@ -127,6 +128,7 @@ export function WelcomeScreen({ navigation }: AuthScreenProps<'Welcome'>) {
             onPress={() => navigation.navigate('Login')}
             testID="welcome-login"
           />
+          <GoogleSignInSection policyNote />
         </View>
       </ScrollView>
     </Screen>

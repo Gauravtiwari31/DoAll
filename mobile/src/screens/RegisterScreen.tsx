@@ -1,6 +1,7 @@
 import React, { useRef, useState } from 'react';
 import { Pressable, StyleSheet, TextInputInstance, View } from 'react-native';
 import { AuthLayout } from '../components/AuthLayout';
+import { GoogleSignInSection } from '../components/GoogleSignInSection';
 import { PasswordToggle } from '../components/PasswordToggle';
 import { Accent, AppText, Banner, Button, TextField } from '../components/ui';
 import { register } from '../features/auth/authSlice';
@@ -186,6 +187,8 @@ export function RegisterScreen({ navigation }: AuthScreenProps<'Register'>) {
         loading={submitting}
         testID="register-submit"
       />
+
+      <GoogleSignInSection />
 
       <Pressable
         onPress={openPrivacyPolicy}

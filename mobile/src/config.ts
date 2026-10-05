@@ -1,6 +1,9 @@
 import { Platform } from 'react-native';
 import { version } from '../package.json';
-import { HOSTED_API_URL } from './env';
+import {
+  GOOGLE_WEB_CLIENT_ID as BUILD_GOOGLE_CLIENT_ID,
+  HOSTED_API_URL,
+} from './env';
 import { normalizeApiUrl, siteOrigin } from './utils/url';
 
 /** Set only in package.json; the Android build reads the same field. */
@@ -30,6 +33,15 @@ export const DEFAULT_API_URL =
 const SITE_URL = siteOrigin(DEFAULT_API_URL);
 export const PRIVACY_POLICY_URL = `${SITE_URL}/privacy`;
 export const ACCOUNT_DELETION_URL = `${SITE_URL}/account/delete`;
+
+/**
+ * The server's Google OAuth client ID, which Google issues the app's ID
+ * tokens to. Null in builds made without one: "Continue with Google" is
+ * hidden. Like the pages above, it belongs to the hosted server; a server of
+ * your own accepts Google sign-in only if it sets the same GOOGLE_CLIENT_ID.
+ */
+export const GOOGLE_WEB_CLIENT_ID: string | null =
+  BUILD_GOOGLE_CLIENT_ID?.trim() || null;
 
 /**
  * Abort requests that hang (bad Wi-Fi, server down) instead of spinning

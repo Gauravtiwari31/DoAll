@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { Pressable, TextInputInstance } from 'react-native';
 import { AuthLayout } from '../components/AuthLayout';
+import { GoogleSignInSection } from '../components/GoogleSignInSection';
 import { PasswordToggle } from '../components/PasswordToggle';
 import { Accent, AppText, Banner, Button, TextField } from '../components/ui';
 import { clearNotice, login } from '../features/auth/authSlice';
@@ -123,6 +124,8 @@ export function LoginScreen({ navigation }: AuthScreenProps<'Login'>) {
         loading={submitting}
         testID="login-submit"
       />
+
+      <GoogleSignInSection policyNote />
     </AuthLayout>
   );
 }

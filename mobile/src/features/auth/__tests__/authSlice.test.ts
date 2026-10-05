@@ -5,6 +5,7 @@ import axios, {
   InternalAxiosRequestConfig,
 } from 'axios';
 import { api } from '../../../api/client';
+import NativeGoogleSignIn from '../../../native/NativeGoogleSignIn';
 import { session } from '../../../services/session';
 import { STORAGE_KEYS, storage } from '../../../services/storage';
 import reducer, {
@@ -14,6 +15,7 @@ import reducer, {
   register,
   restoreSession,
   sessionExpired,
+  signInWithGoogle,
 } from '../authSlice';
 
 const user = {
@@ -145,7 +147,12 @@ describe('deleteAccount', () => {
     const requests = installServer();
     const store = signedInStore();
 
-    const result = await store.dispatch(deleteAccount('right-password'));
+    const signOutOfGoogle = jest.mocked(NativeGoogleSignIn!.signOut);
+    signOutOfGoogle.mockClear();
+
+    const result = await store.dispatch(
+      deleteAccount({ password: 'right-password' }),
+    );
 
     expect(result.type).toBe(deleteAccount.fulfilled.type);
     expect(requests).toHaveLength(1);
@@ -162,13 +169,17 @@ describe('deleteAccount', () => {
       submitting: false,
       notice: null,
     });
+    // Google forgets the account chosen last time, too.
+    expect(signOutOfGoogle).toHaveBeenCalled();
   });
 
   it('flags a wrong password and keeps the session', async () => {
     installServer();
     const store = signedInStore();
 
-    const result = await store.dispatch(deleteAccount('wrong-password'));
+    const result = await store.dispatch(
+      deleteAccount({ password: 'wrong-password' }),
+    );
 
     expect(result).toMatchObject({
       type: deleteAccount.rejected.type,
@@ -186,7 +197,9 @@ describe('deleteAccount', () => {
     };
     const store = signedInStore();
 
-    const result = await store.dispatch(deleteAccount('right-password'));
+    const result = await store.dispatch(
+      deleteAccount({ password: 'right-password' }),
+    );
 
     expect(result).toMatchObject({
       type: deleteAccount.rejected.type,
@@ -195,5 +208,117 @@ describe('deleteAccount', () => {
     });
     expect(session.get()).not.toBeNull();
     expect(store.getState().auth.status).toBe('signedIn');
+  });
+
+  it('confirms with Google, and a refusal is not a wrong password', async () => {
+    const requests = installServer();
+    const store = signedInStore();
+
+    const result = await store.dispatch(
+      deleteAccount({ googleIdToken: 'another-account' }),
+    );
+
+    expect(JSON.parse(requests[0].data)).toEqual({
+      googleIdToken: 'another-account',
+    });
+    expect(result).toMatchObject({
+      type: deleteAccount.rejected.type,
+      meta: { wrongPassword: false },
+    });
+    expect(store.getState().auth.status).toBe('signedIn');
+  });
+});
+
+describe('signInWithGoogle', () => {
+  const googleUser = { ...user, signInMethods: ['google'] };
+  const tokens = {
+    accessToken: 'access',
+    refreshToken: 'refresh',
+    expiresIn: 900,
+  };
+
+  /** Fake POST /auth/google that answers every request with `status` and `data`. */
+  function answer(status: number, data: unknown) {
+    const requests: InternalAxiosRequestConfig[] = [];
+    api.defaults.adapter = async config => {
+      requests.push(config);
+      const response: AxiosResponse = {
+        data,
+        status,
+        statusText: '',
+        headers: {},
+        config,
+      };
+      if (status < 400) {
+        return response;
+      }
+      throw new axios.AxiosError(
+        'Request failed',
+        'ERR_BAD_REQUEST',
+        config,
+        null,
+        response,
+      );
+    };
+    return requests;
+  }
+
+  beforeEach(async () => {
+    await session.clear();
+    await storage.remove(STORAGE_KEYS.user);
+  });
+
+  it('signs in with the ID token and keeps the session like login', async () => {
+    const requests = answer(200, { user: googleUser, tokens });
+    const store = configureStore({ reducer: { auth: reducer } });
+
+    const result = await store.dispatch(
+      signInWithGoogle({ idToken: 'id-token' }),
+    );
+
+    expect(result.type).toBe(signInWithGoogle.fulfilled.type);
+    expect(requests[0]).toMatchObject({ method: 'post', url: '/auth/google' });
+    expect(JSON.parse(requests[0].data)).toEqual({ idToken: 'id-token' });
+    expect(store.getState().auth).toMatchObject({
+      status: 'signedIn',
+      user: googleUser,
+      submitting: false,
+    });
+    expect(session.get()?.accessToken).toBe('access');
+    expect(await storage.get(STORAGE_KEYS.user)).toEqual(googleUser);
+  });
+
+  it('reports an email/password account that needs its password first', async () => {
+    answer(409, {
+      statusCode: 409,
+      code: 'GOOGLE_LINK_PASSWORD_REQUIRED',
+      email: 'ada@example.com',
+      message: 'You already have a DoAll account with this email.',
+    });
+    const store = configureStore({ reducer: { auth: reducer } });
+
+    const result = await store.dispatch(
+      signInWithGoogle({ idToken: 'id-token' }),
+    );
+
+    expect(result).toMatchObject({
+      type: signInWithGoogle.rejected.type,
+      meta: { linkEmail: 'ada@example.com', wrongPassword: false },
+    });
+    expect(session.get()).toBeNull();
+  });
+
+  it('flags a wrong password when connecting', async () => {
+    answer(403, { statusCode: 403, message: 'Incorrect password' });
+    const store = configureStore({ reducer: { auth: reducer } });
+
+    const result = await store.dispatch(
+      signInWithGoogle({ idToken: 'id-token', password: 'nope' }),
+    );
+
+    expect(result).toMatchObject({
+      payload: 'Incorrect password',
+      meta: { linkEmail: null, wrongPassword: true },
+    });
   });
 });

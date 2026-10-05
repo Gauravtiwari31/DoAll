@@ -1,6 +1,19 @@
 import { createAsyncThunk, createSlice, PayloadAction } from '@reduxjs/toolkit';
-import { authApi, Credentials, Registration, User } from '../../api/authApi';
-import { getErrorMessage, isForbidden, isNetworkError } from '../../api/errors';
+import {
+  authApi,
+  Credentials,
+  DeletionConfirmation,
+  GoogleSignIn,
+  Registration,
+  User,
+} from '../../api/authApi';
+import {
+  getErrorMessage,
+  googleLinkEmail,
+  isForbidden,
+  isNetworkError,
+} from '../../api/errors';
+import { googleSignIn } from '../../services/googleSignIn';
 import { session } from '../../services/session';
 import { STORAGE_KEYS, storage } from '../../services/storage';
 
@@ -83,10 +96,38 @@ export const register = createAsyncThunk<
   }
 });
 
-/** Drops the tokens and the cached profile from the device. */
+/**
+ * Signs in with an ID token from Google's account chooser; the first time,
+ * that creates the account. When an email/password account already uses the
+ * address, the server wants its password once: `meta.linkEmail` is then that
+ * address, and the same token is sent again with `password`.
+ */
+export const signInWithGoogle = createAsyncThunk<
+  User,
+  GoogleSignIn,
+  {
+    rejectValue: string;
+    rejectedMeta: { linkEmail: string | null; wrongPassword: boolean };
+  }
+>('auth/google', async (body, { rejectWithValue }) => {
+  try {
+    return await completeSignIn(await authApi.google(body));
+  } catch (error) {
+    return rejectWithValue(getErrorMessage(error), {
+      linkEmail: googleLinkEmail(error),
+      wrongPassword: isForbidden(error),
+    });
+  }
+});
+
+/**
+ * Drops the tokens and the cached profile from the device, and lets Google
+ * forget the account chosen last time.
+ */
 const forgetSession = async () => {
   await session.clear();
   await storage.remove(STORAGE_KEYS.user);
+  await googleSignIn.signOut();
 };
 
 /** Revokes the refresh token server-side (best effort) and forgets it locally. */
@@ -100,20 +141,21 @@ export const logout = createAsyncThunk('auth/logout', async () => {
 
 /**
  * Permanently deletes the account and all its tasks, then forgets the session
- * like logout. The server answers a wrong password with 403 (a 401 would make
- * the client refresh the token), flagged as `meta.wrongPassword` so the form
- * can show it on the password field.
+ * like logout. The user confirms with the password, or with Google for an
+ * account without one. The server answers a wrong password with 403 (a 401
+ * would make the client refresh the token), flagged as `meta.wrongPassword`
+ * so the form can show it on the password field.
  */
 export const deleteAccount = createAsyncThunk<
   void,
-  string,
+  DeletionConfirmation,
   { rejectValue: string; rejectedMeta: { wrongPassword: boolean } }
->('auth/deleteAccount', async (password, { rejectWithValue }) => {
+>('auth/deleteAccount', async (confirmation, { rejectWithValue }) => {
   try {
-    await authApi.deleteAccount(password);
+    await authApi.deleteAccount(confirmation);
   } catch (error) {
     return rejectWithValue(getErrorMessage(error), {
-      wrongPassword: isForbidden(error),
+      wrongPassword: isForbidden(error) && 'password' in confirmation,
     });
   }
   await forgetSession();
@@ -149,7 +191,13 @@ const authSlice = createSlice({
         state.status = 'signedOut';
       })
       .addCase(logout.fulfilled, signedOut)
-      .addCase(deleteAccount.fulfilled, signedOut);
+      .addCase(deleteAccount.fulfilled, signedOut)
+      // The Google button shows its own progress, so `submitting` stays off.
+      .addCase(signInWithGoogle.fulfilled, (state, { payload }) => {
+        state.user = payload;
+        state.status = 'signedIn';
+        state.notice = null;
+      });
 
     // login & register share the same lifecycle.
     for (const thunk of [login, register]) {

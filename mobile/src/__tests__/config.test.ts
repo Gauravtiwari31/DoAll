@@ -55,3 +55,19 @@ describe('APP_VERSION', () => {
     expect(APP_VERSION).toMatch(/^\d+\.\d{1,2}\.\d{1,2}$/);
   });
 });
+
+describe('GOOGLE_WEB_CLIENT_ID', () => {
+  it('is off unless the build provides one', () => {
+    const { GOOGLE_WEB_CLIENT_ID } = require('../config');
+    expect(GOOGLE_WEB_CLIENT_ID).toBeNull();
+  });
+
+  it('comes from env.ts, trimmed', () => {
+    jest.doMock('../env', () => ({
+      HOSTED_API_URL: null,
+      GOOGLE_WEB_CLIENT_ID: ' 1234-abc.apps.googleusercontent.com ',
+    }));
+    const { GOOGLE_WEB_CLIENT_ID } = require('../config');
+    expect(GOOGLE_WEB_CLIENT_ID).toBe('1234-abc.apps.googleusercontent.com');
+  });
+});

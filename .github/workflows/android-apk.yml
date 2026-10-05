@@ -61,6 +61,8 @@ jobs:
           cache-dependency-path: mobile/package-lock.json
 
       - name: Check release requirements
+        env:
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.DOALL_GOOGLE_WEB_CLIENT_ID }}
         run: |
           version=$(node -p "require('./package.json').version")
           echo "App version $version"
@@ -79,6 +81,9 @@ jobs:
           if [ "$HAS_UPLOAD_KEY" != "true" ]; then
             echo "::notice::No upload key secrets yet: building a test APK signed with the debug key, and no app bundle."
           fi
+          if [ -z "$GOOGLE_WEB_CLIENT_ID" ]; then
+            echo "::notice::The DOALL_GOOGLE_WEB_CLIENT_ID variable isn't set, so this build has no Continue with Google (see docs/google-sign-in.md)."
+          fi
 
       - uses: actions/setup-java@v4
         with:
@@ -90,16 +95,17 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      # Repository variable DOALL_API_URL (Settings → Secrets and variables →
-      # Actions → Variables), e.g. https://doall-api.onrender.com, makes the app
-      # use the hosted backend by default. Unset = local backend (10.0.2.2).
-      - name: Point the app at the hosted API
-        if: vars.DOALL_API_URL != ''
+      # Repository variables (Settings → Secrets and variables → Actions →
+      # Variables) baked into src/env.ts. Neither is a secret:
+      #  - DOALL_API_URL, e.g. https://doall-api.onrender.com, makes the app use
+      #    the hosted backend by default. Unset = local backend (10.0.2.2).
+      #  - DOALL_GOOGLE_WEB_CLIENT_ID, the server's Google OAuth client ID,
+      #    turns on "Continue with Google" (docs/google-sign-in.md).
+      - name: Write the build settings
         env:
           DOALL_API_URL: ${{ vars.DOALL_API_URL }}
-        run: |
-          node -e "require('fs').writeFileSync('src/env.ts', 'export const HOSTED_API_URL: string | null = ' + JSON.stringify(process.env.DOALL_API_URL) + ';\n')"
-          cat src/env.ts
+          DOALL_GOOGLE_WEB_CLIENT_ID: ${{ vars.DOALL_GOOGLE_WEB_CLIENT_ID }}
+        run: node scripts/write-build-env.mjs
 
       - name: Restore the upload key
         if: env.HAS_UPLOAD_KEY == 'true'

@@ -24,7 +24,11 @@ Tap the server pill on the welcome or login screen. You can test the address bef
 | Phone on the same Wi-Fi | your computer's LAN IP, e.g. `192.168.1.20:3000` |
 | USB phone | `localhost:3000`, after `npm run adb:reverse` |
 
-The default is the local backend, unless the build was given a hosted URL. CI writes the repository variable `DOALL_API_URL` into [`src/env.ts`](src/env.ts); see [`src/config.ts`](src/config.ts).
+The default is the local backend, unless the build was given a hosted URL. CI writes the repository variables `DOALL_API_URL` and `DOALL_GOOGLE_WEB_CLIENT_ID` into [`src/env.ts`](src/env.ts) with [`scripts/write-build-env.mjs`](scripts/write-build-env.mjs); see [`src/config.ts`](src/config.ts).
+
+### Sign in with Google
+
+**Continue with Google** appears on the welcome, login and sign-up screens when the build has a Google client ID (`GOOGLE_WEB_CLIENT_ID` in `src/env.ts`). It uses Android's Credential Manager through the app's own Turbo Native Module: the spec is [`src/native/NativeGoogleSignIn.ts`](src/native/NativeGoogleSignIn.ts) (React Native's codegen turns it into a Kotlin interface, per `codegenConfig` in `package.json`) and the implementation is [`android/app/src/main/java/com/doall/googlesignin`](android/app/src/main/java/com/doall/googlesignin). Setting up the Google Cloud side, and the fingerprints each build needs, is in [docs/google-sign-in.md](../docs/google-sign-in.md).
 
 ### Release builds
 
@@ -57,12 +61,13 @@ CI builds the APK on every push and the signed bundle once the key secrets exist
 ```
 src/
 ├── App.tsx              providers + startup (preferences → session restore)
-├── config.ts            API URL, timeouts, app version, privacy policy and account deletion links
+├── config.ts            API URL, timeouts, app version, privacy policy and account deletion links, Google client ID
+├── native/              spec of the Google sign-in Turbo Native Module (Kotlin in android/…/googlesignin)
 ├── api/                 axios client (auth header, proactive + single-flight refresh), endpoints
-├── services/            session (tokens), server address, JSON storage helpers
+├── services/            session (tokens), server address, Google's account chooser, JSON storage helpers
 ├── store/               configureStore, listener middleware, typed hooks
 ├── features/
-│   ├── auth/            authSlice (restore, login, register, logout, deleteAccount), validation
+│   ├── auth/            authSlice (restore, login, register, Google sign-in, logout, deleteAccount), validation
 │   ├── tasks/           tasksSlice (entity adapter, optimistic updates), selectors,
 │   │                    ordering (smart sort), metadata, validation, types
 │   └── preferences/     theme + sort preferences

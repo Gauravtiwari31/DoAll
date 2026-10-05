@@ -40,3 +40,20 @@ export const isUnauthorized = (error: unknown) =>
 /** 403: signed in, but the server refused (e.g. a wrong confirmation password). */
 export const isForbidden = (error: unknown) =>
   isAxiosError(error) && error.response?.status === 403;
+
+/**
+ * Signing in with Google found an email/password account with the same
+ * address: the server answers 409 with this code and the address, and
+ * connects the two once that account's password is sent along.
+ * Returns the address, or null for any other error.
+ */
+export function googleLinkEmail(error: unknown): string | null {
+  if (!isAxiosError(error) || error.response?.status !== 409) {
+    return null;
+  }
+  const body = error.response.data as { code?: unknown; email?: unknown };
+  return body?.code === 'GOOGLE_LINK_PASSWORD_REQUIRED' &&
+    typeof body.email === 'string'
+    ? body.email
+    : null;
+}

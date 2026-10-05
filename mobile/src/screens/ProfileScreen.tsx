@@ -2,6 +2,7 @@ import { format } from 'date-fns';
 import React, { useState } from 'react';
 import { ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SignInMethod, signInMethodsOf } from '../api/authApi';
 import { DeleteAccountSheet } from '../components/DeleteAccountSheet';
 import {
   Accent,
@@ -30,6 +31,18 @@ import { useOpenPrivacyPolicy } from '../hooks/useOpenPrivacyPolicy';
 import { AppScreenProps } from '../navigation/types';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { palette, useTheme } from '../theme';
+
+/** "You sign in with Google.", and so on. */
+function describeSignIn(methods: SignInMethod[]) {
+  const password = methods.includes('password');
+  const google = methods.includes('google');
+  if (password && google) {
+    return 'You sign in with your password or with Google.';
+  }
+  return google
+    ? 'You sign in with Google.'
+    : 'You sign in with your email and password.';
+}
 
 function StatTile({
   label,
@@ -254,6 +267,9 @@ export function ProfileScreen({ navigation }: AppScreenProps<'Profile'>) {
         </View>
 
         <SectionLabel style={styles.section}>Account & privacy</SectionLabel>
+        <AppText color="textMuted" style={styles.signIn}>
+          {describeSignIn(signInMethodsOf(user))}
+        </AppText>
         <View style={styles.actions}>
           <Button
             title="Privacy policy"
@@ -332,5 +348,6 @@ const styles = StyleSheet.create({
   barFilled: { borderWidth: 1.5 },
   barCount: { width: 24, textAlign: 'right' },
   actions: { gap: 12 },
+  signIn: { marginBottom: 14 },
   version: { marginTop: 36 },
 });

@@ -173,4 +173,12 @@ dependencies {
     } else {
         implementation jscFlavor
     }
+
+    // Sign in with Google through Credential Manager (googlesignin/GoogleSignInModule.kt).
+    // play-services-auth lets Android 13 and older use Google accounts too.
+    implementation("androidx.credentials:credentials:1.6.0")
+    implementation("androidx.credentials:credentials-play-services-auth:1.6.0")
+    // googleid 1.2.1 and later are built with Kotlin 2.4, newer than the
+    // kotlinVersion this React Native version uses (android/build.gradle).
+    implementation("com.google.android.libraries.identity.googleid:googleid:1.2.0")
 }
