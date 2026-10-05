@@ -3,6 +3,14 @@ import { InjectModel } from '@nestjs/mongoose';
 import { Model } from 'mongoose';
 import { RefreshSession, User, UserDocument } from './schemas/user.schema';
 
+/** The two kinds of emailed link: confirming the address, and choosing a new password. */
+export type EmailTokenKind = 'verify' | 'reset';
+
+const tokenFields = (kind: EmailTokenKind) =>
+  kind === 'verify'
+    ? ({ hash: 'verifyTokenHash', expiresAt: 'verifyTokenExpiresAt' } as const)
+    : ({ hash: 'resetTokenHash', expiresAt: 'resetTokenExpiresAt' } as const);
+
 /** Data-access layer for users. Business rules live in AuthService. */
 @Injectable()
 export class UsersService {
@@ -16,6 +24,10 @@ export class UsersService {
     googleId?: string;
   }): Promise<UserDocument> {
     return this.userModel.create(data);
+  }
+
+  findById(id: string): Promise<UserDocument | null> {
+    return this.userModel.findById(id).exec();
   }
 
   findByEmail(email: string): Promise<UserDocument | null> {
@@ -66,6 +78,64 @@ export class UsersService {
 
   async replaceSessions(userId: string, sessions: RefreshSession[]): Promise<void> {
     await this.userModel.updateOne({ _id: userId }, { $set: { sessions } }).exec();
+  }
+
+  /** Remembers the hash of a newly emailed token, replacing any earlier one of that kind. */
+  async setEmailToken(
+    userId: string,
+    kind: EmailTokenKind,
+    tokenHash: string,
+    expiresAt: Date,
+  ): Promise<void> {
+    const fields = tokenFields(kind);
+    await this.userModel
+      .updateOne(
+        { _id: userId },
+        { $set: { [fields.hash]: tokenHash, [fields.expiresAt]: expiresAt } },
+      )
+      .exec();
+  }
+
+  /** The account an unexpired emailed token belongs to, with its secrets. */
+  findByEmailToken(kind: EmailTokenKind, tokenHash: string): Promise<UserDocument | null> {
+    const fields = tokenFields(kind);
+    return this.userModel
+      .findOne({ [fields.hash]: tokenHash, [fields.expiresAt]: { $gt: new Date() } })
+      .select('+passwordHash +sessions')
+      .exec();
+  }
+
+  /** Marks the address as confirmed and retires the verification link. */
+  async markEmailVerified(userId: string): Promise<void> {
+    await this.userModel
+      .updateOne(
+        { _id: userId },
+        { $set: { emailVerified: true }, $unset: { verifyTokenHash: 1, verifyTokenExpiresAt: 1 } },
+      )
+      .exec();
+  }
+
+  /**
+   * Sets a new password from a reset link and signs every device out. Using
+   * the link also proves the address works, so it counts as verified. Only
+   * succeeds while the link is still the current one (each link works once).
+   */
+  async resetPassword(userId: string, tokenHash: string, passwordHash: string): Promise<boolean> {
+    const result = await this.userModel
+      .updateOne(
+        { _id: userId, resetTokenHash: tokenHash },
+        {
+          $set: { passwordHash, sessions: [], emailVerified: true },
+          $unset: {
+            resetTokenHash: 1,
+            resetTokenExpiresAt: 1,
+            verifyTokenHash: 1,
+            verifyTokenExpiresAt: 1,
+          },
+        },
+      )
+      .exec();
+    return result.modifiedCount === 1;
   }
 
   /** Removes the user document, and with it every refresh session it holds. */

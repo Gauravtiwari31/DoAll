@@ -9,6 +9,7 @@ import { JwtService } from '@nestjs/jwt';
 import { Test } from '@nestjs/testing';
 import * as bcrypt from 'bcryptjs';
 import { sha256 } from '../common/utils/hash';
+import { Mail, MailService } from '../mail/mail.service';
 import { TasksService } from '../tasks/tasks.service';
 import { RefreshSession } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
@@ -49,8 +50,15 @@ describe('AuthService', () => {
   let deleteTasks: jest.Mock;
   let createUser: jest.Mock;
   let linkGoogle: jest.Mock;
+  let markVerified: jest.Mock;
+  let mail: { enabled: boolean; send: jest.Mock };
+  /** Emailed tokens by kind, as UsersService.setEmailToken stored their hashes. */
+  let emailTokens: Record<string, string>;
 
   beforeEach(async () => {
+    markVerified = jest.fn().mockResolvedValue(undefined);
+    mail = { enabled: false, send: jest.fn().mockResolvedValue(undefined) };
+    emailTokens = {};
     savedSessions = [];
     deleteUser = jest.fn().mockResolvedValue(undefined);
     deleteTasks = jest.fn().mockResolvedValue(3);
@@ -73,6 +81,15 @@ describe('AuthService', () => {
         return Promise.resolve();
       }),
       deleteById: deleteUser,
+      setEmailToken: jest.fn((_id: string, kind: string, hash: string) => {
+        emailTokens[kind] = hash;
+        return Promise.resolve();
+      }),
+      findByEmailToken: jest.fn((kind: string, hash: string) =>
+        Promise.resolve(emailTokens[kind] === hash ? makeUser() : null),
+      ),
+      markEmailVerified: markVerified,
+      resetPassword: jest.fn().mockResolvedValue(true),
     } as unknown as jest.Mocked<UsersService>;
     const tasks = { removeAllForOwner: deleteTasks } as unknown as TasksService;
     // A token is "valid" when it names a GoogleIdentity registered here.
@@ -86,6 +103,7 @@ describe('AuthService', () => {
     };
 
     const config = {
+      get: (key: string) => (key === 'publicUrl' ? 'https://doall.example.com' : undefined),
       getOrThrow: (key: string) =>
         ({
           'jwt.accessSecret': 'a'.repeat(32),
@@ -102,6 +120,7 @@ describe('AuthService', () => {
         { provide: UsersService, useValue: users },
         { provide: TasksService, useValue: tasks },
         { provide: GoogleIdentityService, useValue: google },
+        { provide: MailService, useValue: mail },
         { provide: ConfigService, useValue: config },
       ],
     }).compile();
@@ -364,6 +383,87 @@ describe('AuthService', () => {
         ).toBeNull();
         expect(deleteUser).not.toHaveBeenCalled();
       });
+    });
+  });
+
+  describe('email links', () => {
+    /** The token in the link of the last email sent. */
+    const lastLinkToken = () => {
+      const sent = mail.send.mock.calls.at(-1)?.[0] as Mail;
+      return /token=([\w-]+)/.exec(sent.text)?.[1] as string;
+    };
+
+    beforeEach(() => {
+      mail.enabled = true;
+    });
+
+    it('emails a verification link on sign-up, and the link confirms the address', async () => {
+      await service.register({ name: 'Ada', email: 'ada@example.com', password: 'secret123' });
+      await new Promise(setImmediate); // sign-up doesn't wait for the email
+
+      const sent = mail.send.mock.calls[0][0] as Mail;
+      expect(sent.to).toBe('ada@example.com');
+      expect(sent.text).toContain('https://doall.example.com/verify-email?token=');
+      expect(emailTokens.verify).toBe(sha256(lastLinkToken()));
+
+      expect(await service.verifyEmail(lastLinkToken())).toBe('ada@example.com');
+      expect(markVerified).toHaveBeenCalledWith('64b000000000000000000001');
+      expect(await service.verifyEmail('not-the-token')).toBeNull();
+    });
+
+    it("doesn't send anything when email is off", async () => {
+      mail.enabled = false;
+      await service.register({ name: 'Ada', email: 'ada@example.com', password: 'secret123' });
+      await new Promise(setImmediate);
+      expect(mail.send).not.toHaveBeenCalled();
+      expect(service.emailVerificationRequired).toBe(false);
+      await expect(service.requestPasswordReset('ada@example.com')).rejects.toBeInstanceOf(
+        NotImplementedException,
+      );
+    });
+
+    it('resends the verification email only while the address is unconfirmed', async () => {
+      users.findByIdWithSecrets.mockResolvedValue(makeUser() as never);
+      await service.resendVerification('64b000000000000000000001');
+      expect(mail.send).toHaveBeenCalledTimes(1);
+
+      users.findByIdWithSecrets.mockResolvedValue(makeUser({ emailVerified: true }) as never);
+      await service.resendVerification('64b000000000000000000001');
+      users.findByIdWithSecrets.mockResolvedValue(makeUser({ googleId: 'g' }) as never);
+      await service.resendVerification('64b000000000000000000001');
+      expect(mail.send).toHaveBeenCalledTimes(1);
+    });
+
+    it('emails a reset link only to existing accounts, without saying which', async () => {
+      await expect(service.requestPasswordReset('nobody@example.com')).resolves.toBeUndefined();
+      expect(mail.send).not.toHaveBeenCalled();
+
+      users.findByEmail.mockResolvedValue(makeUser() as never);
+      mail.send.mockRejectedValueOnce(new Error('provider down'));
+      await expect(service.requestPasswordReset('ada@example.com')).resolves.toBeUndefined();
+      await service.requestPasswordReset('ada@example.com');
+      expect(mail.send).toHaveBeenCalledTimes(2);
+      expect((mail.send.mock.calls[1][0] as Mail).text).toContain('/reset-password?token=');
+    });
+
+    it('sets a new password from a valid reset link', async () => {
+      users.findByEmail.mockResolvedValue(makeUser() as never);
+      await service.requestPasswordReset('ada@example.com');
+      const token = lastLinkToken();
+
+      expect(await service.isPasswordResetTokenValid(token)).toBe(true);
+      expect(await service.isPasswordResetTokenValid('nope')).toBe(false);
+      expect(await service.resetPassword('nope', 'newpass123')).toBeNull();
+      expect(await service.resetPassword(token, 'newpass123')).toBe('ada@example.com');
+
+      const [id, tokenHash, passwordHash] = (users.resetPassword as jest.Mock).mock.calls[0] as [
+        string,
+        string,
+        string,
+      ];
+      expect(id).toBe('64b000000000000000000001');
+      expect(tokenHash).toBe(sha256(token));
+      expect(await bcrypt.compare('newpass123', passwordHash)).toBe(true);
     });
   });
 });

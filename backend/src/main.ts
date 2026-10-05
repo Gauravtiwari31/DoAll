@@ -1,3 +1,5 @@
+// Must come first: Sentry hooks into the modules loaded after it.
+import './instrument';
 import { Logger } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { NestFactory } from '@nestjs/core';

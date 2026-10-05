@@ -51,4 +51,45 @@ describe('validateEnv', () => {
       );
     });
   });
+
+  describe('email', () => {
+    const env = { JWT_ACCESS_SECRET: strong('a'), JWT_REFRESH_SECRET: strong('b') };
+    const mail = {
+      MAIL_PROVIDER: 'brevo',
+      MAIL_API_KEY: 'key',
+      MAIL_FROM: 'DoAll <no-reply@example.com>',
+      PUBLIC_URL: 'https://doall.example.com',
+    };
+
+    it('is optional', () => {
+      expect(validateEnv({ ...env, MAIL_PROVIDER: '' })).toBeDefined();
+    });
+
+    it('accepts a complete setup, with Render providing the public address', () => {
+      expect(validateEnv({ ...env, ...mail })).toBeDefined();
+      expect(
+        validateEnv({
+          ...env,
+          ...mail,
+          PUBLIC_URL: '',
+          RENDER_EXTERNAL_URL: 'https://doall.onrender.com',
+        }),
+      ).toBeDefined();
+    });
+
+    it('rejects an unknown provider or missing settings', () => {
+      expect(() => validateEnv({ ...env, ...mail, MAIL_PROVIDER: 'smtp' })).toThrow(
+        /MAIL_PROVIDER must be one of/,
+      );
+      expect(() => validateEnv({ ...env, ...mail, MAIL_API_KEY: '' })).toThrow(/MAIL_API_KEY/);
+      expect(() => validateEnv({ ...env, ...mail, MAIL_FROM: ' ' })).toThrow(/MAIL_FROM/);
+      expect(() => validateEnv({ ...env, ...mail, PUBLIC_URL: '' })).toThrow(/PUBLIC_URL is not/);
+    });
+
+    it('rejects a PUBLIC_URL that is not an http(s) address', () => {
+      expect(() => validateEnv({ ...env, PUBLIC_URL: 'doall.example.com' })).toThrow(
+        /PUBLIC_URL must be/,
+      );
+    });
+  });
 });

@@ -1,5 +1,5 @@
 import { Types } from 'mongoose';
-import { Task } from './schemas/task.schema';
+import { Recurrence, Task } from './schemas/task.schema';
 import { TaskCategory, TaskPriority } from './task.constants';
 
 /** Shape of a task in API responses. */
@@ -14,6 +14,9 @@ export interface TaskResponse {
   tags: string[];
   completed: boolean;
   completedAt: Date | null;
+  reminderOffset: number | null;
+  recurrence: Recurrence | null;
+  timeZone: string | null;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -31,6 +34,9 @@ export const toTaskResponse = (task: LeanTask): TaskResponse => ({
   tags: task.tags ?? [],
   completed: task.completed,
   completedAt: task.completedAt ?? null,
+  reminderOffset: task.reminderOffset ?? null,
+  recurrence: task.recurrence ?? null,
+  timeZone: task.timeZone ?? null,
   createdAt: task.createdAt,
   updatedAt: task.updatedAt,
 });

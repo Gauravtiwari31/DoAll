@@ -1,10 +1,14 @@
 import { INestApplication, RequestMethod, ValidationPipe } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
+import { NestExpressApplication } from '@nestjs/platform-express';
 import helmet from 'helmet';
 import {
   ACCOUNT_DELETE_GOOGLE_CALLBACK_PATH,
   ACCOUNT_DELETE_GOOGLE_PATH,
   ACCOUNT_DELETE_PATH,
   PRIVACY_PATH,
+  RESET_PASSWORD_PATH,
+  VERIFY_EMAIL_PATH,
 } from './legal/legal.constants';
 
 /**
@@ -20,6 +24,9 @@ export function configureApp(app: INestApplication): void {
       { path: ACCOUNT_DELETE_PATH, method: RequestMethod.POST },
       { path: ACCOUNT_DELETE_GOOGLE_PATH, method: RequestMethod.POST },
       { path: ACCOUNT_DELETE_GOOGLE_CALLBACK_PATH, method: RequestMethod.GET },
+      { path: VERIFY_EMAIL_PATH, method: RequestMethod.GET },
+      { path: RESET_PASSWORD_PATH, method: RequestMethod.GET },
+      { path: RESET_PASSWORD_PATH, method: RequestMethod.POST },
     ],
   });
   app.use(
@@ -39,7 +46,14 @@ export function configureApp(app: INestApplication): void {
       },
     }),
   );
-  app.enableCors();
+  // Room for a full sync batch (200 tasks), well below anything abusive.
+  (app as NestExpressApplication).useBodyParser('json', { limit: '1mb' });
+  // The app isn't a browser and the web pages are same-origin, so CORS stays
+  // off unless CORS_ORIGINS names a web front end.
+  const corsOrigins = app.get(ConfigService).getOrThrow<string[]>('corsOrigins');
+  if (corsOrigins.length > 0) {
+    app.enableCors({ origin: corsOrigins });
+  }
   app.useGlobalPipes(
     new ValidationPipe({
       whitelist: true, // strip unknown properties

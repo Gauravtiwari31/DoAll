@@ -40,6 +40,31 @@ export class User {
   @Prop({ unique: true, sparse: true })
   googleId?: string;
 
+  /**
+   * The address was confirmed through the link in the verification email.
+   * Google vouches for the address of accounts that sign in with Google, so
+   * use isEmailVerified() rather than reading this alone.
+   */
+  @Prop({ default: false })
+  emailVerified: boolean;
+
+  /**
+   * SHA-256 of the token in the latest verification email, and when it stops
+   * working. Like refresh tokens, the token itself is never stored.
+   */
+  @Prop({ select: false, index: { sparse: true } })
+  verifyTokenHash?: string;
+
+  @Prop({ select: false })
+  verifyTokenExpiresAt?: Date;
+
+  /** Same for the latest password reset email. */
+  @Prop({ select: false, index: { sparse: true } })
+  resetTokenHash?: string;
+
+  @Prop({ select: false })
+  resetTokenExpiresAt?: Date;
+
   /** Active refresh sessions (one per signed-in device), capped in AuthService. */
   @Prop({ type: [RefreshSessionSchema], default: [], select: false })
   sessions: RefreshSession[];
@@ -61,8 +86,14 @@ export interface PublicUser {
   email: string;
   /** Lets the app ask for the right confirmation, e.g. before deleting the account. */
   signInMethods: SignInMethod[];
+  /** Whether the email address is confirmed (see isEmailVerified). */
+  emailVerified: boolean;
   createdAt: Date;
 }
+
+/** Confirmed by the emailed link, or by Google for accounts that sign in with it. */
+export const isEmailVerified = (user: Pick<User, 'emailVerified' | 'googleId'>): boolean =>
+  Boolean(user.emailVerified || user.googleId);
 
 /**
  * `passwordHash` is `select: false`, so the document must come from a query
@@ -77,5 +108,6 @@ export const toPublicUser = (user: UserDocument): PublicUser => ({
     ...(user.passwordHash ? (['password'] as const) : []),
     ...(user.googleId ? (['google'] as const) : []),
   ],
+  emailVerified: isEmailVerified(user),
   createdAt: user.createdAt,
 });

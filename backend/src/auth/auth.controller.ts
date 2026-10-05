@@ -6,6 +6,7 @@ import { Public } from '../common/decorators/public.decorator';
 import type { AuthUser } from '../common/interfaces/jwt-payload.interface';
 import { AuthService } from './auth.service';
 import { DeleteAccountDto } from './dto/delete-account.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { GoogleSignInDto } from './dto/google-sign-in.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
@@ -64,6 +65,27 @@ export class AuthController {
   @Post('logout')
   async logout(@Body() dto: RefreshTokenDto): Promise<void> {
     await this.auth.logout(dto.refreshToken);
+  }
+
+  /**
+   * Emails a password reset link, if the address has an account. Always 204,
+   * so it doesn't reveal who has an account; 501 if this server can't email.
+   */
+  @Public()
+  @Throttle(CREDENTIAL_LIMIT)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Post('password/forgot')
+  async forgotPassword(@Body() dto: ForgotPasswordDto): Promise<void> {
+    await this.auth.requestPasswordReset(dto.email);
+  }
+
+  /** Sends the signed-in user a new email verification link. */
+  @ApiBearerAuth()
+  @Throttle(CREDENTIAL_LIMIT)
+  @HttpCode(HttpStatus.NO_CONTENT)
+  @Post('verify-email/resend')
+  async resendVerification(@CurrentUser() user: AuthUser): Promise<void> {
+    await this.auth.resendVerification(user.id);
   }
 
   /** The currently authenticated user's profile. */

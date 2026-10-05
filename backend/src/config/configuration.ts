@@ -32,7 +32,31 @@ export interface AppConfig {
      */
     clientSecret: string | null;
   };
+  /**
+   * The server's own public address, e.g. https://doall-api.onrender.com,
+   * used for the links in emails. Render sets RENDER_EXTERNAL_URL itself.
+   */
+  publicUrl: string | null;
+  /**
+   * Browser origins allowed to call the API. The app isn't a browser and the
+   * web pages are same-origin, so this is empty (CORS off) unless set.
+   */
+  corsOrigins: string[];
+  /**
+   * Transactional email (verification and password reset links). Null
+   * provider = email off: nothing is sent and sync doesn't wait for a
+   * verified address.
+   */
+  mail: {
+    provider: MailProvider | null;
+    apiKey: string | null;
+    /** Sender, e.g. `DoAll <no-reply@example.com>`. */
+    from: string | null;
+  };
 }
+
+export const MAIL_PROVIDERS = ['brevo', 'resend'] as const;
+export type MailProvider = (typeof MAIL_PROVIDERS)[number];
 
 /** Empty strings count as unset, so a blank variable on the host turns a feature off. */
 const optional = (value: string | undefined): string | null => value?.trim() || null;
@@ -50,5 +74,19 @@ export const configuration = (): AppConfig => ({
   google: {
     clientId: optional(process.env.GOOGLE_CLIENT_ID),
     clientSecret: optional(process.env.GOOGLE_CLIENT_SECRET),
+  },
+  publicUrl:
+    (optional(process.env.PUBLIC_URL) ?? optional(process.env.RENDER_EXTERNAL_URL))?.replace(
+      /\/+$/,
+      '',
+    ) ?? null,
+  corsOrigins: (process.env.CORS_ORIGINS ?? '')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter(Boolean),
+  mail: {
+    provider: optional(process.env.MAIL_PROVIDER)?.toLowerCase() as MailProvider | null,
+    apiKey: optional(process.env.MAIL_API_KEY),
+    from: optional(process.env.MAIL_FROM),
   },
 });

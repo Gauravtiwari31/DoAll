@@ -2,6 +2,8 @@
  * Fails fast on boot when required environment variables are missing or weak,
  * instead of surfacing as confusing JWT errors at request time.
  */
+import { MAIL_PROVIDERS } from './configuration';
+
 const REQUIRED = ['JWT_ACCESS_SECRET', 'JWT_REFRESH_SECRET'] as const;
 const MIN_SECRET_LENGTH = 32;
 const GOOGLE_CLIENT_ID_PATTERN = /^[\w-]+\.apps\.googleusercontent\.com$/;
@@ -43,6 +45,29 @@ export function validateEnv(env: Record<string, unknown>): Record<string, unknow
   }
   if (googleSecret && !googleClientId) {
     problems.push('GOOGLE_CLIENT_SECRET is set but GOOGLE_CLIENT_ID is not');
+  }
+
+  // Email is optional too, but all three settings go together.
+  const text = (key: string) => {
+    const value = env[key];
+    return typeof value === 'string' ? value.trim() : '';
+  };
+  const mailProvider = text('MAIL_PROVIDER').toLowerCase();
+  if (mailProvider) {
+    if (!(MAIL_PROVIDERS as readonly string[]).includes(mailProvider)) {
+      problems.push(`MAIL_PROVIDER must be one of: ${MAIL_PROVIDERS.join(', ')}`);
+    }
+    if (!text('MAIL_API_KEY')) problems.push('MAIL_PROVIDER is set but MAIL_API_KEY is not');
+    if (!text('MAIL_FROM')) problems.push('MAIL_PROVIDER is set but MAIL_FROM is not');
+    if (!text('PUBLIC_URL') && !text('RENDER_EXTERNAL_URL')) {
+      problems.push(
+        "MAIL_PROVIDER is set but PUBLIC_URL is not: emails need the server's public address for their links",
+      );
+    }
+  }
+  const publicUrl = text('PUBLIC_URL');
+  if (publicUrl && !/^https?:\/\/[^/\s]+/.test(publicUrl)) {
+    problems.push('PUBLIC_URL must be an http(s) address, e.g. https://doall-api.onrender.com');
   }
 
   if (problems.length > 0) {

@@ -8,11 +8,13 @@ import {
   DEVELOPER_NAME,
   POLICY_EFFECTIVE_DATE,
   PRIVACY_PATH,
+  RESET_PASSWORD_PATH,
   SOURCE_CODE_URL,
 } from './legal.constants';
 
 /*
- * Server-rendered pages for the privacy policy and account deletion.
+ * Server-rendered pages for the privacy policy, account deletion and the links
+ * in emails.
  *
  * Plain template strings keep this dependency-free. Text that comes from a
  * request (the email typed into the form) always goes through escapeHtml().
@@ -23,6 +25,7 @@ import {
 const PRIVACY_URL = `/${PRIVACY_PATH}`;
 const DELETE_URL = `/${ACCOUNT_DELETE_PATH}`;
 const DELETE_GOOGLE_URL = `/${ACCOUNT_DELETE_GOOGLE_PATH}`;
+const RESET_PASSWORD_URL = `/${RESET_PASSWORD_PATH}`;
 const MAIL_LINK = `<a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>`;
 
 /** The app's "paper & ink" look: outlined cards with hard, un-blurred offset shadows. */
@@ -253,7 +256,16 @@ ${body}
 `;
 }
 
-export function privacyPolicyPage(): string {
+/** Names of the email services DoAll can use, as the policy shows them. */
+const EMAIL_PROVIDER_NAMES: Record<string, string> = { brevo: 'Brevo', resend: 'Resend' };
+
+export interface PrivacyPolicyOptions {
+  /** The email service this server sends through (MAIL_PROVIDER), if any. */
+  emailProvider?: string | null;
+}
+
+export function privacyPolicyPage({ emailProvider = null }: PrivacyPolicyOptions = {}): string {
+  const mailer = emailProvider ? (EMAIL_PROVIDER_NAMES[emailProvider] ?? emailProvider) : null;
   return page({
     title: 'Privacy policy',
     description: `How ${APP_NAME} collects, uses, stores and deletes your information.`,
@@ -267,9 +279,10 @@ export function privacyPolicyPage(): string {
 <h2>The short version</h2>
 <ul>
 <li>${APP_NAME} stores your name, your email address, a scrambled (hashed) form of your password or, if you sign in with Google, your Google account ID, and the tasks you create. That's all.</li>
-<li>It is used only to run the app. There are no ads, no analytics and no tracking, and your data is never sold.</li>
-<li>Your data travels over encrypted HTTPS connections and is stored with two hosting providers, Render and MongoDB Atlas.</li>
-<li>You can delete your account and all of your tasks at any time, in the app or on the web. Deletion is immediate and permanent.</li>
+<li>Your tasks are kept on your phone, so ${APP_NAME} works offline, and on the server, which backs them up and keeps your devices in sync. Reminders are set on your phone.</li>
+<li>It is used only to run the app. There are no ads, no analytics and no tracking, and your data is never sold. The only emails are to confirm your address and to reset your password.</li>
+<li>Your data travels over encrypted HTTPS connections and is stored with Render and MongoDB Atlas, with encrypted backups on GitHub.</li>
+<li>You can delete your account and all of your tasks at any time, in the app or on the web. Deletion is immediate and permanent; backups that still contain it are gone within 30 days.</li>
 </ul>
 </section>
 
@@ -277,6 +290,7 @@ export function privacyPolicyPage(): string {
 <ol>
 <li><a href="#collect">What we collect</a></li>
 <li><a href="#google">Google sign-in</a></li>
+<li><a href="#emails">Emails</a></li>
 <li><a href="#use">How we use it</a></li>
 <li><a href="#storage">Where it's stored</a></li>
 <li><a href="#device">On your phone</a></li>
@@ -297,13 +311,17 @@ export function privacyPolicyPage(): string {
 <dt>Account information</dt>
 <dd>Your name (shown in the app's greeting), your email address (used to sign in) and your password. The password is stored only as a bcrypt hash: a one-way, scrambled version that can check a password but can't be turned back into it, so nobody, including the developer, can read it. If you sign in with Google, your Google account ID is stored as well, or instead of a password if you never set one (see <a href="#google">Google sign-in</a>).</dd>
 <dt>Your tasks</dt>
-<dd>What you enter for each task: its title, notes, scheduled date and time, deadline, priority, category and tags, whether it's done and when you finished it, and when it was created and last changed.</dd>
+<dd>What you enter for each task: its title, notes, scheduled date and time, deadline, priority, category and tags, its reminder and how it repeats, whether it's done and when you finished it, and when it was created and last changed. Each task also records the time zone it was planned in, so that a task repeating at 9:00 stays at 9:00 local time.</dd>
+<dt>Email confirmation</dt>
+<dd>Whether your email address is confirmed and, while a confirmation or password reset link is waiting to be used, a SHA-256 hash of that link's code and when it expires. The code itself is never stored.</dd>
 <dt>Sign-in sessions</dt>
 <dd>For each device you're signed in on (up to 5), a SHA-256 hash of that device's sign-in token, with the time it was created and the time it expires. This keeps you signed in without storing the token itself.</dd>
 <dt>Technical information</dt>
 <dd>The IP address of each request is used, in memory only, to limit repeated sign-in attempts. ${APP_NAME} doesn't store it, but it may appear in the hosting provider's request logs.</dd>
+<dt>Crash reports</dt>
+<dd>If the app or the server crashes, a crash report may be sent to Sentry so the bug can be found and fixed: what went wrong and where in the code, the app version, and the phone model and Android version. Crash reports contain no account details, no task content, no IP address and no screenshots.</dd>
 </dl>
-<p><strong>What we don't collect:</strong> your location, contacts, photos or files, calendar, messages, device or advertising identifiers, usage analytics, crash reports, payment information or health data. The app contains no advertising, analytics or tracking code. These web pages set no cookies, except one that is strictly necessary while you delete your account with Google: it holds a random security code for the few minutes the sign-in takes, and expires after 10 minutes at most.</p>
+<p><strong>What we don't collect:</strong> your location, contacts, photos or files, calendar, messages, device or advertising identifiers, usage analytics, payment information or health data. The app contains no advertising, analytics or tracking code. These web pages set no cookies, except one that is strictly necessary while you delete your account with Google: it holds a random security code for the few minutes the sign-in takes, and expires after 10 minutes at most.</p>
 </section>
 
 <section id="google">
@@ -321,7 +339,12 @@ export function privacyPolicyPage(): string {
 <li>storing your tasks so they're there on every device you sign in on, and working out your stats and the smart sort order;</li>
 <li>protecting accounts, for example by limiting repeated sign-in attempts.</li>
 </ul>
-<p>We don't use your information for advertising, profiling or marketing, and ${APP_NAME} doesn't send you emails. Your data is never sold, and never shared with anyone for their own purposes.</p>
+<p>We don't use your information for advertising, profiling or marketing. Your data is never sold, and never shared with anyone for their own purposes.</p>
+</section>
+
+<section id="emails">
+<h2>Emails</h2>
+<p>${APP_NAME} emails you only when it has to: after you sign up, with a link to confirm your address (backing up and syncing your tasks waits for it), again if you ask for a new link, and when you ask to reset your password. There are no newsletters or marketing emails. The emails are sent by ${mailer ?? 'an email delivery service'}, which receives your name and email address for that purpose only.</p>
 </section>
 
 <section id="storage">
@@ -330,19 +353,23 @@ export function privacyPolicyPage(): string {
 <ul>
 <li><strong>Render</strong> hosts the ${APP_NAME} server (the API the app talks to) in its Singapore region.</li>
 <li><strong>MongoDB Atlas</strong> hosts the database where your account and tasks are stored.</li>
+<li><strong>GitHub</strong> keeps a nightly backup copy of the database for 30 days, encrypted (AES-256) so that only the developer can read it.</li>
+<li><strong>${mailer ?? 'An email delivery service'}</strong> sends the confirmation and password reset emails.</li>
+<li><strong>Sentry</strong> receives crash reports, if any (see <a href="#collect">what we collect</a>).</li>
 </ul>
 <p>This means your information may be stored and processed outside the country where you live. Apart from these providers, ${APP_NAME} doesn't share your information with anyone, unless the law requires it.</p>
 </section>
 
 <section id="device">
 <h2>On your phone</h2>
-<p>The app keeps a few things in its private storage on your phone: your sign-in tokens, a copy of your name and email address, your preferences (theme and sort order) and, if you set one, a custom server address. Other apps can't read this storage, and it is excluded from Android cloud backups and device-to-device transfers. Logging out removes your tokens and profile from the phone; uninstalling the app removes everything.</p>
+<p>The app keeps your tasks in a database in its private storage on your phone, so it works without a connection, and sends changes to the server when it can. It also keeps your sign-in tokens, a copy of your name and email address, your preferences (theme and sort order) and, if you set one, a custom server address. Reminders are scheduled by your phone itself, without the server. Other apps can't read this storage, and it is excluded from Android cloud backups and device-to-device transfers. Logging out removes your tasks, tokens, profile and reminders from the phone; uninstalling the app removes everything.</p>
+<p><strong>Export my data</strong> in the app's Profile saves a copy of all your tasks as a file, wherever you choose.</p>
 </section>
 
 <section id="retention">
 <h2>How long we keep it</h2>
-<p>Your account and tasks are kept for as long as you have an account. When you delete a task in the app, it is deleted from the server straight away. A device's session is removed when you log out on that device, and an unused session expires after 30 days.</p>
-<p>When you delete your account, everything described above is deleted immediately and permanently.</p>
+<p>Your account and tasks are kept for as long as you have an account. When you delete a task, everything you wrote in it is removed from the server as soon as your phone syncs. A marker with only the task's ID and dates stays for up to 60 days, so your other devices learn it was deleted. A device's session is removed when you log out on that device, and an unused session expires after 30 days. Confirmation links expire after 3 days, and password reset links after 1 hour.</p>
+<p>When you delete your account, everything described above is deleted immediately and permanently from the live database. Copies in the encrypted backups disappear as those backups expire, within 30 days. Crash reports are kept by Sentry for up to 90 days.</p>
 </section>
 
 <section id="deletion">
@@ -352,7 +379,7 @@ export function privacyPolicyPage(): string {
 <li><strong>In the app:</strong> go to <strong>Profile → Delete account</strong> and confirm with your password, or by choosing your Google account if you sign in with Google.</li>
 <li><strong>On the web:</strong> use the <a href="${DELETE_URL}">account deletion page</a> with your email and password, or with Google. It works even if you no longer have the app.</li>
 </ul>
-<p>Either way, your account, all of your tasks and every sign-in session are deleted immediately and permanently. This can't be undone.</p>
+<p>Either way, your account, all of your tasks and every sign-in session are deleted immediately and permanently. This can't be undone. Encrypted backup copies expire within 30 days.</p>
 <p>If you can't use either option, for example because you've forgotten your password, email ${MAIL_LINK} from the address you signed up with and we'll delete the account for you. You can also email us to ask for a copy of your data.</p>
 </section>
 
@@ -360,7 +387,8 @@ export function privacyPolicyPage(): string {
 <h2>Security</h2>
 <ul>
 <li>The app and the ${APP_NAME} server talk over HTTPS, so your data is encrypted in transit.</li>
-<li>Passwords are stored only as bcrypt hashes, and sign-in tokens only as SHA-256 hashes.</li>
+<li>Passwords are stored only as bcrypt hashes, and sign-in tokens and emailed link codes only as SHA-256 hashes.</li>
+<li>Database backups are encrypted before they're stored.</li>
 <li>Every Google sign-in is checked on the server: it must carry Google's signature and be issued for ${APP_NAME}.</li>
 <li>Sign-in tokens are short-lived and replaced each time they're used. If an old token is ever reused, every session on the account is signed out as a precaution.</li>
 <li>Repeated sign-in attempts are rate limited, and each account can only ever see its own tasks.</li>
@@ -579,6 +607,94 @@ export function errorPage(status: number, retryPath: string): string {
 <h1>${title}</h1>
 <p>${message}</p>
 <p><a class="button" href="${escapeHtml(retryPath)}">Try again</a></p>
+</section>`,
+  });
+}
+
+/** The verification link was opened. `email` is null when the link didn't work. */
+export function emailVerifiedPage(email: string | null): string {
+  if (!email) {
+    return page({
+      title: 'Link expired',
+      description: 'This email confirmation link no longer works.',
+      body: `<section class="card">
+<p class="eyebrow">Email confirmation</p>
+<h1>This link doesn't work any more</h1>
+<div class="sticker warn" role="alert">
+<p>It has expired, was replaced by a newer email, or your address is already confirmed.</p>
+</div>
+<p>Open ${APP_NAME} and go to <strong>Profile</strong>. If your address still needs confirming, tap <strong>Resend email</strong> there to get a new link.</p>
+</section>`,
+    });
+  }
+  return page({
+    title: 'Email confirmed',
+    description: `Your email address is confirmed for ${APP_NAME}.`,
+    body: `<section class="card">
+<p class="eyebrow">Email confirmation</p>
+<h1>Your email is confirmed</h1>
+<div class="sticker" role="status">
+<p><strong>${escapeHtml(email)}</strong> is confirmed. Thanks!</p>
+</div>
+<p>Go back to ${APP_NAME}: your tasks start backing up and syncing between your devices the next time the app opens.</p>
+</section>`,
+  });
+}
+
+/** The form behind the password reset link, with what was wrong last time, if anything. */
+export function resetPasswordPage(token: string, problem?: string): string {
+  const invalid = problem ? ' aria-invalid="true" aria-describedby="password-error"' : '';
+  const error = problem ? `<p class="error" id="password-error">${escapeHtml(problem)}</p>` : '';
+  return page({
+    title: 'Choose a new password',
+    description: `Choose a new password for your ${APP_NAME} account.`,
+    body: `<section class="card">
+<p class="eyebrow">Password reset</p>
+<h1>Choose a new password</h1>
+<p>At least 8 characters, with at least one letter and one number. Every device signed in to your account is signed out, so you log in again with the new password.</p>
+<form method="post" action="${RESET_PASSWORD_URL}">
+<input type="hidden" name="token" value="${escapeHtml(token)}">
+<div>
+<label for="password">New password</label>
+${error}
+<input id="password" name="password" type="password" autocomplete="new-password" minlength="8" maxlength="72" required${invalid}>
+</div>
+<div>
+<label for="confirmPassword">New password again</label>
+<input id="confirmPassword" name="confirmPassword" type="password" autocomplete="new-password" minlength="8" maxlength="72" required>
+</div>
+<div><button class="button" type="submit">Save new password</button></div>
+</form>
+</section>`,
+  });
+}
+
+/** After a reset: `email` is null when the link had expired or was used already. */
+export function passwordResetDonePage(email: string | null): string {
+  if (!email) {
+    return page({
+      title: 'Link expired',
+      description: 'This password reset link no longer works.',
+      body: `<section class="card">
+<p class="eyebrow">Password reset</p>
+<h1>This link doesn't work any more</h1>
+<div class="sticker warn" role="alert">
+<p>Reset links work once, for 1 hour, and only the newest one does.</p>
+</div>
+<p>In ${APP_NAME}, tap <strong>Forgot password?</strong> on the log in screen to get a new link.</p>
+</section>`,
+    });
+  }
+  return page({
+    title: 'Password changed',
+    description: `Your ${APP_NAME} password has been changed.`,
+    body: `<section class="card">
+<p class="eyebrow">Password reset</p>
+<h1>Your password is changed</h1>
+<div class="sticker" role="status">
+<p>The password for <strong>${escapeHtml(email)}</strong> is changed, and every device was signed out.</p>
+</div>
+<p>Open ${APP_NAME} and log in with your new password. Changes you made while signed out are still on your phone and sync once you're back in.</p>
 </section>`,
   });
 }

@@ -113,6 +113,7 @@ describe('DoAll API (e2e)', () => {
         name: 'Test User',
         email: 'ada@example.com',
         signInMethods: ['password'],
+        emailVerified: false,
         createdAt: expect.any(String),
       });
       expect(res.body.tokens).toEqual({
@@ -494,6 +495,7 @@ describe('DoAll API (e2e)', () => {
         name: 'Gina Google',
         email: 'gina@example.com',
         signInMethods: ['google'],
+        emailVerified: true,
         createdAt: expect.any(String),
       });
       const me = await request(http)

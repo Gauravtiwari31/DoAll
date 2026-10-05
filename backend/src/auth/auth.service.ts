@@ -6,25 +6,30 @@ import {
   Injectable,
   Logger,
   NotImplementedException,
+  ServiceUnavailableException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
 import { JwtService, JwtSignOptions } from '@nestjs/jwt';
 import * as bcrypt from 'bcryptjs';
-import { randomUUID } from 'node:crypto';
+import { randomBytes, randomUUID } from 'node:crypto';
 import {
   AccessTokenPayload,
   RefreshTokenPayload,
 } from '../common/interfaces/jwt-payload.interface';
 import { sha256 } from '../common/utils/hash';
+import { VERIFY_EMAIL_PATH, RESET_PASSWORD_PATH } from '../legal/legal.constants';
+import { Mail, MailService } from '../mail/mail.service';
 import { TasksService } from '../tasks/tasks.service';
 import {
+  isEmailVerified,
   PublicUser,
   RefreshSession,
   toPublicUser,
   UserDocument,
 } from '../users/schemas/user.schema';
-import { UsersService } from '../users/users.service';
+import { EmailTokenKind, UsersService } from '../users/users.service';
+import { passwordResetEmail, verificationEmail } from './auth.emails';
 import { AuthResponse, AuthTokens, GOOGLE_LINK_PASSWORD_REQUIRED } from './auth.types';
 import { DeleteAccountDto } from './dto/delete-account.dto';
 import { GoogleSignInDto } from './dto/google-sign-in.dto';
@@ -42,6 +47,12 @@ const BCRYPT_ROUNDS = 10;
 const MAX_SESSIONS = 5;
 /** Same limit as RegisterDto and the schema. */
 const MAX_NAME_LENGTH = 50;
+/** How long the links in emails work. */
+const VERIFY_LINK_TTL_MS = 3 * 24 * 60 * 60 * 1000;
+const RESET_LINK_TTL_MS = 60 * 60 * 1000;
+
+const MAIL_OFF =
+  "This server can't send emails. Ask whoever runs it, or email the address in the privacy policy.";
 
 type Ttl = JwtSignOptions['expiresIn'];
 
@@ -77,9 +88,18 @@ export class AuthService {
     private readonly users: UsersService,
     private readonly tasks: TasksService,
     private readonly google: GoogleIdentityService,
+    private readonly mail: MailService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
+
+  /**
+   * Whether sync waits for a confirmed email address. Only when the server
+   * can send the verification email; otherwise nobody could ever confirm.
+   */
+  get emailVerificationRequired(): boolean {
+    return this.mail.enabled;
+  }
 
   async register(dto: RegisterDto): Promise<AuthResponse> {
     if (await this.users.findByEmail(dto.email)) {
@@ -98,6 +118,13 @@ export class AuthService {
       throw error;
     }
 
+    // Sign-up doesn't wait for the email, and doesn't fail when it can't be sent:
+    // the app offers "Resend" until the address is confirmed.
+    if (this.mail.enabled) {
+      void this.sendEmailLink(user, 'verify').catch((error: Error) =>
+        this.logger.warn(`Couldn't send the verification email to ${user.id}: ${error.message}`),
+      );
+    }
     return this.startSession(user);
   }
 
@@ -188,6 +215,65 @@ export class AuthService {
       user.id as string,
       user.sessions.filter((s) => s.tokenHash !== tokenHash),
     );
+  }
+
+  /** Sends a new verification email to the signed-in user. A no-op once confirmed. */
+  async resendVerification(userId: string): Promise<void> {
+    if (!this.mail.enabled) throw new NotImplementedException(MAIL_OFF);
+    const user = await this.users.findByIdWithSecrets(userId);
+    if (!user) throw new UnauthorizedException('Account no longer exists');
+    if (isEmailVerified(user)) return;
+    await this.sendOrFail(user, 'verify');
+  }
+
+  /**
+   * The verification link was opened. Returns the confirmed address, or null
+   * when the link is unknown, used or expired.
+   */
+  async verifyEmail(token: string): Promise<string | null> {
+    const user = await this.users.findByEmailToken('verify', sha256(token));
+    if (!user) return null;
+    await this.users.markEmailVerified(user.id as string);
+    this.logger.log(`Email confirmed for account ${user.id}`);
+    return user.email;
+  }
+
+  /**
+   * Emails a password reset link. Says nothing about whether the address has
+   * an account, so it can't be used to find out who uses DoAll.
+   */
+  async requestPasswordReset(email: string): Promise<void> {
+    if (!this.mail.enabled) throw new NotImplementedException(MAIL_OFF);
+    const user = await this.users.findByEmail(email);
+    if (!user) return;
+    try {
+      await this.sendEmailLink(user, 'reset');
+    } catch (error) {
+      // Logged, not reported: the answer must look the same as for an unknown address.
+      this.logger.warn(
+        `Couldn't send a password reset email to ${user.id}: ${(error as Error).message}`,
+      );
+    }
+  }
+
+  /** Whether a reset link still works, so the page can say so before asking for a password. */
+  async isPasswordResetTokenValid(token: string): Promise<boolean> {
+    return (await this.users.findByEmailToken('reset', sha256(token))) !== null;
+  }
+
+  /**
+   * Sets a new password from a reset link (the password has been checked
+   * already) and signs out every device. Returns the account's address, or
+   * null when the link is unknown, used or expired.
+   */
+  async resetPassword(token: string, password: string): Promise<string | null> {
+    const tokenHash = sha256(token);
+    const user = await this.users.findByEmailToken('reset', tokenHash);
+    if (!user) return null;
+    const passwordHash = await bcrypt.hash(password, BCRYPT_ROUNDS);
+    if (!(await this.users.resetPassword(user.id as string, tokenHash, passwordHash))) return null;
+    this.logger.log(`Password reset for account ${user.id}; all sessions revoked`);
+    return user.email;
   }
 
   async me(userId: string): Promise<PublicUser> {
@@ -334,6 +420,38 @@ export class AuthService {
     user.googleId = google.id;
     this.logger.log(`Connected Google sign-in to account ${user.id}`);
     return this.startSession(user);
+  }
+
+  /** Emails a fresh link of the given kind; the previous one stops working. */
+  private async sendEmailLink(user: UserDocument, kind: EmailTokenKind): Promise<void> {
+    const publicUrl = this.config.get<string | null>('publicUrl');
+    if (!publicUrl) throw new Error('PUBLIC_URL is not set');
+    const token = randomBytes(32).toString('base64url');
+    const ttl = kind === 'verify' ? VERIFY_LINK_TTL_MS : RESET_LINK_TTL_MS;
+    await this.users.setEmailToken(
+      user.id as string,
+      kind,
+      sha256(token),
+      new Date(Date.now() + ttl),
+    );
+
+    const path = kind === 'verify' ? VERIFY_EMAIL_PATH : RESET_PASSWORD_PATH;
+    const link = `${publicUrl}/${path}?token=${token}`;
+    const mail: Mail =
+      kind === 'verify'
+        ? verificationEmail(user.email, user.name, link)
+        : passwordResetEmail(user.email, user.name, link);
+    await this.mail.send(mail);
+  }
+
+  /** Like sendEmailLink, for requests that should tell the user when sending failed. */
+  private async sendOrFail(user: UserDocument, kind: EmailTokenKind): Promise<void> {
+    try {
+      await this.sendEmailLink(user, kind);
+    } catch (error) {
+      this.logger.error(`Couldn't send a ${kind} email to ${user.id}: ${(error as Error).message}`);
+      throw new ServiceUnavailableException("The email couldn't be sent. Please try again later.");
+    }
   }
 
   /** Issues a token pair for a user loaded with its secrets (or just created). */

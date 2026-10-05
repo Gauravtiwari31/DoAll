@@ -24,6 +24,7 @@ import {
   InvalidGoogleTokenError,
 } from '../auth/google-identity.service';
 import { Public } from '../common/decorators/public.decorator';
+import { MailService } from '../mail/mail.service';
 import { escapeHtml } from '../common/utils/escape-html';
 import { CONFIRM_PROBLEM, isConfirmed, parseDeleteAccountForm } from './delete-account.form';
 import {
@@ -68,12 +69,13 @@ export class LegalController {
   constructor(
     private readonly auth: AuthService,
     private readonly google: GoogleIdentityService,
+    private readonly mail: MailService,
   ) {}
 
   @Get(PRIVACY_PATH)
   @Header('Content-Type', HTML)
   privacyPolicy(): string {
-    return privacyPolicyPage();
+    return privacyPolicyPage({ emailProvider: this.mail.enabled ? this.mail.provider : null });
   }
 
   @Get(ACCOUNT_DELETE_PATH)
