@@ -85,7 +85,7 @@ jobs:
             echo "::notice::The DOALL_GOOGLE_WEB_CLIENT_ID variable isn't set, so this build has no Continue with Google (see docs/google-sign-in.md)."
           fi
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         with:
           distribution: temurin
           java-version: 17
