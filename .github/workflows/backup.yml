@@ -32,7 +32,7 @@ jobs:
         run: |
           echo "::warning::Set the MONGODB_URI and BACKUP_PASSPHRASE secrets to back up the database (docs/operations.md)."
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: env.HAS_SECRETS == 'true'
 
       - uses: actions/setup-node@v4
