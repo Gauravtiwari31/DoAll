@@ -1,8 +1,11 @@
 import {
   ConflictException,
   ForbiddenException,
+  HttpException,
+  HttpStatus,
   Injectable,
   Logger,
+  NotImplementedException,
   UnauthorizedException,
 } from '@nestjs/common';
 import { ConfigService } from '@nestjs/config';
@@ -22,16 +25,37 @@ import {
   UserDocument,
 } from '../users/schemas/user.schema';
 import { UsersService } from '../users/users.service';
-import { AuthResponse, AuthTokens } from './auth.types';
+import { AuthResponse, AuthTokens, GOOGLE_LINK_PASSWORD_REQUIRED } from './auth.types';
+import { DeleteAccountDto } from './dto/delete-account.dto';
+import { GoogleSignInDto } from './dto/google-sign-in.dto';
 import { LoginDto } from './dto/login.dto';
 import { RegisterDto } from './dto/register.dto';
+import {
+  GoogleIdentity,
+  GoogleIdentityService,
+  InvalidGoogleTokenError,
+} from './google-identity.service';
 
 /** bcrypt work factor: ~100ms per hash — slow for attackers, fine for users. */
 const BCRYPT_ROUNDS = 10;
 /** Max simultaneous signed-in devices per account; the oldest session is evicted. */
 const MAX_SESSIONS = 5;
+/** Same limit as RegisterDto and the schema. */
+const MAX_NAME_LENGTH = 50;
 
 type Ttl = JwtSignOptions['expiresIn'];
+
+const isDuplicateKey = (error: unknown) => (error as { code?: number }).code === 11000;
+
+/**
+ * The name for an account created with Google: Google's display name, or the
+ * part of the email address before the @ when Google has none.
+ */
+const nameFromGoogle = ({ name, email }: GoogleIdentity) =>
+  // Array.from splits by code point, so an emoji is never cut in half.
+  Array.from(name ?? email.split('@')[0])
+    .slice(0, MAX_NAME_LENGTH)
+    .join('');
 
 /**
  * Authentication flow
@@ -42,6 +66,8 @@ type Ttl = JwtSignOptions['expiresIn'];
  * - Only a SHA-256 of each refresh token is stored. If a token that was
  *   already rotated is presented again, it has likely been stolen, so every
  *   session of that user is revoked (refresh-token reuse detection).
+ * - Accounts sign in with a password, with Google, or with both. Either way
+ *   they then get the same token pair.
  */
 @Injectable()
 export class AuthService {
@@ -50,6 +76,7 @@ export class AuthService {
   constructor(
     private readonly users: UsersService,
     private readonly tasks: TasksService,
+    private readonly google: GoogleIdentityService,
     private readonly jwt: JwtService,
     private readonly config: ConfigService,
   ) {}
@@ -65,25 +92,68 @@ export class AuthService {
       user = await this.users.create({ name: dto.name, email: dto.email, passwordHash });
     } catch (error) {
       // Two concurrent sign-ups with the same email: the unique index wins.
-      if ((error as { code?: number }).code === 11000) {
+      if (isDuplicateKey(error)) {
         throw new ConflictException('An account with this email already exists');
       }
       throw error;
     }
 
-    const tokens = await this.issueTokens(user, []);
-    return { user: toPublicUser(user), tokens };
+    return this.startSession(user);
   }
 
   async login(dto: LoginDto): Promise<AuthResponse> {
     const user = await this.verifyCredentials(dto.email, dto.password);
-    const tokens = await this.issueTokens(user, user.sessions);
-    return { user: toPublicUser(user), tokens };
+    return this.startSession(user);
+  }
+
+  /**
+   * Sign in with a Google ID token from the app. The first time creates the
+   * account, named and addressed as on Google.
+   *
+   * If an email/password account already uses the address, Google is only
+   * connected to it once its password has been given as well. Otherwise
+   * someone could sign up with another person's email address before they
+   * ever use DoAll, wait for them to sign in with Google, and keep access
+   * through the password ("account pre-hijacking").
+   */
+  async signInWithGoogle({ idToken, password }: GoogleSignInDto): Promise<AuthResponse> {
+    const google = await this.verifyGoogleToken(
+      idToken,
+      (message) => new UnauthorizedException(message),
+    );
+
+    const linked = await this.users.findByGoogleIdWithSecrets(google.id);
+    if (linked) return this.startSession(linked);
+
+    if (!google.emailVerified) {
+      throw new UnauthorizedException(
+        "Your Google account's email address isn't verified, so it can't be used to sign in.",
+      );
+    }
+
+    const existing = await this.users.findByEmailWithSecrets(google.email);
+    if (existing) return this.connectGoogle(existing, google, password);
+
+    let user: UserDocument;
+    try {
+      user = await this.users.create({
+        name: nameFromGoogle(google),
+        email: google.email,
+        googleId: google.id,
+      });
+    } catch (error) {
+      if (!isDuplicateKey(error)) throw error;
+      // The same sign-in arrived twice at once, and the other one won.
+      const raced = await this.users.findByGoogleIdWithSecrets(google.id);
+      if (!raced) throw new ConflictException('An account with this email already exists');
+      user = raced;
+    }
+    return this.startSession(user);
   }
 
   async refresh(refreshToken: string): Promise<AuthResponse> {
     const payload = await this.verifyRefreshToken(refreshToken);
-    const user = await this.users.findByIdWithSessions(payload.sub);
+    const user = await this.users.findByIdWithSecrets(payload.sub);
     if (!user) throw new UnauthorizedException('Session expired, please sign in again');
 
     const tokenHash = sha256(refreshToken);
@@ -121,17 +191,39 @@ export class AuthService {
   }
 
   async me(userId: string): Promise<PublicUser> {
-    const user = await this.users.findById(userId);
+    const user = await this.users.findByIdWithSecrets(userId);
     if (!user) throw new UnauthorizedException('Account no longer exists');
     return toPublicUser(user);
   }
 
-  /** Permanently deletes the signed-in user's account once the password is confirmed. */
-  async deleteAccount(userId: string, password: string): Promise<void> {
+  /**
+   * Permanently deletes the signed-in user's account once they confirm who
+   * they are again: with the password or, for an account that signs in with
+   * Google, by choosing that Google account again (a fresh ID token).
+   */
+  async deleteAccount(
+    userId: string,
+    { password, googleIdToken }: DeleteAccountDto,
+  ): Promise<void> {
     const user = await this.users.findByIdWithSecrets(userId);
     if (!user) throw new UnauthorizedException('Account no longer exists');
+
     // 403, not 401: the app reads 401 as "access token expired" and would refresh and retry.
-    if (!(await bcrypt.compare(password, user.passwordHash))) {
+    if (googleIdToken !== undefined) {
+      const google = await this.verifyGoogleToken(
+        googleIdToken,
+        (message) => new ForbiddenException(message),
+      );
+      if (google.id !== user.googleId) {
+        throw new ForbiddenException(
+          "That Google account isn't the one connected to your DoAll account. Choose the one you sign in with.",
+        );
+      }
+    } else if (!user.passwordHash) {
+      throw new ForbiddenException(
+        'Your account signs in with Google. Confirm with Google instead.',
+      );
+    } else if (!(await bcrypt.compare(password ?? '', user.passwordHash))) {
       throw new ForbiddenException('Incorrect password');
     }
     await this.removeAccount(user.id as string);
@@ -143,16 +235,111 @@ export class AuthService {
     await this.removeAccount(user.id as string);
   }
 
+  /**
+   * Deletion from the web page after the person chose a Google account there:
+   * the DoAll account connected to that Google account or, failing that, the
+   * one registered with its email address once Google has verified it.
+   * Proving that you own an address is enough to delete its account, though
+   * not to sign in to it. Returns the deleted account's email, or null if
+   * there was none.
+   */
+  async deleteAccountWithGoogle(google: GoogleIdentity): Promise<string | null> {
+    let user = await this.users.findByGoogleId(google.id);
+    if (!user && google.emailVerified) {
+      const byEmail = await this.users.findByEmail(google.email);
+      // An account connected to a different Google account isn't theirs to delete.
+      if (byEmail && !byEmail.googleId) user = byEmail;
+    }
+    if (!user) return null;
+    await this.removeAccount(user.id as string);
+    return user.email;
+  }
+
   // ---------------------------------------------------------------------------
 
   private async verifyCredentials(email: string, password: string): Promise<UserDocument> {
     const user = await this.users.findByEmailWithSecrets(email);
+    if (user && !user.passwordHash) {
+      // Created with Google: there is no password to check against.
+      throw new UnauthorizedException(
+        'This account signs in with Google. Use "Continue with Google" instead.',
+      );
+    }
     // Same message for "no such user" and "wrong password" to avoid leaking which emails exist.
-    const valid = user ? await bcrypt.compare(password, user.passwordHash) : false;
+    const valid = user?.passwordHash ? await bcrypt.compare(password, user.passwordHash) : false;
     if (!user || !valid) {
       throw new UnauthorizedException('Incorrect email or password');
     }
     return user;
+  }
+
+  /**
+   * Checks a Google ID token sent by the app. A token Google didn't issue for
+   * this app turns into `rejection(message)`: 401 when signing in, 403 when it
+   * confirms an action of a signed-in user.
+   */
+  private async verifyGoogleToken(
+    idToken: string,
+    rejection: (message: string) => HttpException,
+  ): Promise<GoogleIdentity> {
+    if (!this.google.enabled) {
+      throw new NotImplementedException("Google sign-in isn't set up on this server.");
+    }
+    try {
+      return await this.google.verifyIdToken(idToken);
+    } catch (error) {
+      if (error instanceof InvalidGoogleTokenError) {
+        throw rejection("Google couldn't confirm your account. Please try again.");
+      }
+      throw error;
+    }
+  }
+
+  /** Connects Google to an existing email/password account (see signInWithGoogle). */
+  private async connectGoogle(
+    user: UserDocument,
+    google: GoogleIdentity,
+    password: string | undefined,
+  ): Promise<AuthResponse> {
+    if (user.googleId) {
+      throw new ConflictException(
+        'This email address is already connected to a different Google account.',
+      );
+    }
+    if (password === undefined) {
+      throw new ConflictException({
+        statusCode: HttpStatus.CONFLICT,
+        error: 'Conflict',
+        code: GOOGLE_LINK_PASSWORD_REQUIRED,
+        message:
+          'You already have a DoAll account with this email. Enter its password once to connect Google sign-in.',
+        email: user.email,
+      });
+    }
+    // 403 like the other "confirm with your password" checks.
+    if (!user.passwordHash || !(await bcrypt.compare(password, user.passwordHash))) {
+      throw new ForbiddenException('Incorrect password');
+    }
+
+    let linked: boolean;
+    try {
+      linked = await this.users.linkGoogleAccount(user.id as string, google.id);
+    } catch (error) {
+      if (!isDuplicateKey(error)) throw error;
+      linked = false; // that Google account was connected to another account meanwhile
+    }
+    if (!linked) {
+      throw new ConflictException('This account changed in the meantime. Please try again.');
+    }
+    user.googleId = google.id;
+    this.logger.log(`Connected Google sign-in to account ${user.id}`);
+    return this.startSession(user);
+  }
+
+  /** Issues a token pair for a user loaded with its secrets (or just created). */
+  private async startSession(user: UserDocument): Promise<AuthResponse> {
+    const tokens = await this.issueTokens(user, user.sessions ?? []);
+    return { user: toPublicUser(user), tokens };
   }
 
   /**

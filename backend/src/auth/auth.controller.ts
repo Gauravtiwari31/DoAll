@@ -6,6 +6,7 @@ import { Public } from '../common/decorators/public.decorator';
 import type { AuthUser } from '../common/interfaces/jwt-payload.interface';
 import { AuthService } from './auth.service';
 import { DeleteAccountDto } from './dto/delete-account.dto';
+import { GoogleSignInDto } from './dto/google-sign-in.dto';
 import { LoginDto } from './dto/login.dto';
 import { RefreshTokenDto } from './dto/refresh-token.dto';
 import { RegisterDto } from './dto/register.dto';
@@ -35,6 +36,20 @@ export class AuthController {
     return this.auth.login(dto);
   }
 
+  /**
+   * Sign in, or sign up the first time, with a Google ID token from the app.
+   * If an email/password account already uses the address, the answer is 409
+   * with `code: GOOGLE_LINK_PASSWORD_REQUIRED` until that account's password
+   * is sent along, which connects Google to it.
+   */
+  @Public()
+  @Throttle(CREDENTIAL_LIMIT)
+  @HttpCode(HttpStatus.OK)
+  @Post('google')
+  google(@Body() dto: GoogleSignInDto) {
+    return this.auth.signInWithGoogle(dto);
+  }
+
   /** Rotate a refresh token: the old one is invalidated, a new pair is returned. */
   @Public()
   @HttpCode(HttpStatus.OK)
@@ -58,12 +73,15 @@ export class AuthController {
     return this.auth.me(user.id);
   }
 
-  /** Permanently delete the account, all of its tasks and every session. Needs the password. */
+  /**
+   * Permanently delete the account, all of its tasks and every session. Needs
+   * the password, or a fresh Google ID token for an account without one.
+   */
   @ApiBearerAuth()
   @Throttle(CREDENTIAL_LIMIT)
   @HttpCode(HttpStatus.NO_CONTENT)
   @Delete('me')
   async deleteMe(@CurrentUser() user: AuthUser, @Body() dto: DeleteAccountDto): Promise<void> {
-    await this.auth.deleteAccount(user.id, dto.password);
+    await this.auth.deleteAccount(user.id, dto);
   }
 }

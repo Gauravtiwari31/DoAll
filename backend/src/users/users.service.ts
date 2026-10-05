@@ -8,16 +8,38 @@ import { RefreshSession, User, UserDocument } from './schemas/user.schema';
 export class UsersService {
   constructor(@InjectModel(User.name) private readonly userModel: Model<User>) {}
 
-  create(data: { name: string; email: string; passwordHash: string }): Promise<UserDocument> {
+  /** A new account has a password, a Google ID, or (after linking) both. */
+  create(data: {
+    name: string;
+    email: string;
+    passwordHash?: string;
+    googleId?: string;
+  }): Promise<UserDocument> {
     return this.userModel.create(data);
-  }
-
-  findById(id: string): Promise<UserDocument | null> {
-    return this.userModel.findById(id).exec();
   }
 
   findByEmail(email: string): Promise<UserDocument | null> {
     return this.userModel.findOne({ email: email.toLowerCase().trim() }).exec();
+  }
+
+  findByGoogleId(googleId: string): Promise<UserDocument | null> {
+    return this.userModel.findOne({ googleId }).exec();
+  }
+
+  /** Includes the password hash and sessions, which are excluded from normal queries. */
+  findByGoogleIdWithSecrets(googleId: string): Promise<UserDocument | null> {
+    return this.userModel.findOne({ googleId }).select('+passwordHash +sessions').exec();
+  }
+
+  /**
+   * Connects a Google account to an existing account that has none yet.
+   * Returns false if the account already had one (or no longer exists).
+   */
+  async linkGoogleAccount(userId: string, googleId: string): Promise<boolean> {
+    const result = await this.userModel
+      .updateOne({ _id: userId, googleId: { $exists: false } }, { $set: { googleId } })
+      .exec();
+    return result.modifiedCount === 1;
   }
 
   /** Includes the password hash and sessions, which are excluded from normal queries. */

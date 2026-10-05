@@ -8,7 +8,10 @@ import {
 } from '@nestjs/common';
 import type { Request, Response } from 'express';
 import { sendHtml } from './html-response';
+import { ACCOUNT_DELETE_PATH } from './legal.constants';
 import { errorPage } from './legal.views';
+
+const DELETE_URL = `/${ACCOUNT_DELETE_PATH}`;
 
 /**
  * Bound to the public pages so a browser is never shown the API's JSON errors:
@@ -31,6 +34,8 @@ export class HtmlExceptionFilter implements ExceptionFilter {
       this.logger.error(error.message, error.stack);
     }
     if (res.headersSent) return;
-    sendHtml(res, status, errorPage(status, req.path));
+    // "Try again" leads to a page, not to a form's target or Google's callback.
+    const retryPath = req.path.startsWith(DELETE_URL) ? DELETE_URL : req.path;
+    sendHtml(res, status, errorPage(status, retryPath));
   }
 }

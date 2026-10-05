@@ -19,7 +19,23 @@ export interface AppConfig {
     accessTtl: string;
     refreshTtl: string;
   };
+  /** Sign in with Google. Both values are null unless set (feature off). */
+  google: {
+    /**
+     * The OAuth client ID of type "Web application". The app asks Google for
+     * ID tokens issued to it, and the API only accepts tokens issued to it.
+     */
+    clientId: string | null;
+    /**
+     * That client's secret. Only the web account deletion page needs it, to
+     * let people who signed up with Google confirm with Google.
+     */
+    clientSecret: string | null;
+  };
 }
+
+/** Empty strings count as unset, so a blank variable on the host turns a feature off. */
+const optional = (value: string | undefined): string | null => value?.trim() || null;
 
 export const configuration = (): AppConfig => ({
   port: parseInt(process.env.PORT ?? '3000', 10),
@@ -30,5 +46,9 @@ export const configuration = (): AppConfig => ({
     refreshSecret: process.env.JWT_REFRESH_SECRET as string,
     accessTtl: process.env.JWT_ACCESS_TTL ?? '15m',
     refreshTtl: process.env.JWT_REFRESH_TTL ?? '30d',
+  },
+  google: {
+    clientId: optional(process.env.GOOGLE_CLIENT_ID),
+    clientSecret: optional(process.env.GOOGLE_CLIENT_SECRET),
   },
 });

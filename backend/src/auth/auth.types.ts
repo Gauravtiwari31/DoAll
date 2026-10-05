@@ -14,3 +14,10 @@ export interface AuthResponse {
   user: PublicUser;
   tokens: AuthTokens;
 }
+
+/**
+ * `code` of the 409 from POST /auth/google when an email/password account
+ * already uses the Google account's address: send the request again with
+ * that account's `password` to connect the two.
+ */
+export const GOOGLE_LINK_PASSWORD_REQUIRED = 'GOOGLE_LINK_PASSWORD_REQUIRED';

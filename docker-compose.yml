@@ -33,6 +33,9 @@ services:
       JWT_REFRESH_SECRET: ${JWT_REFRESH_SECRET:-dev-only-refresh-secret-please-change-0002}
       JWT_ACCESS_TTL: 15m
       JWT_REFRESH_TTL: 30d
+      # Optional Sign in with Google (docs/google-sign-in.md).
+      GOOGLE_CLIENT_ID: ${GOOGLE_CLIENT_ID:-}
+      GOOGLE_CLIENT_SECRET: ${GOOGLE_CLIENT_SECRET:-}
 
 volumes:
   mongo-data:

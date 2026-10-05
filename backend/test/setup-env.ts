@@ -8,3 +8,6 @@ process.env.JWT_ACCESS_SECRET = 'e2e-access-secret-'.padEnd(48, 'a');
 process.env.JWT_REFRESH_SECRET = 'e2e-refresh-secret-'.padEnd(48, 'r');
 process.env.JWT_ACCESS_TTL = '15m';
 process.env.JWT_REFRESH_TTL = '30d';
+// Google sign-in on, with the library's calls to Google stubbed in the tests.
+process.env.GOOGLE_CLIENT_ID = 'e2e-client.apps.googleusercontent.com';
+process.env.GOOGLE_CLIENT_SECRET = 'e2e-client-secret';

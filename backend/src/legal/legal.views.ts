@@ -1,6 +1,7 @@
 import { escapeHtml } from '../common/utils/escape-html';
 import { CONFIRM_VALUE, DeleteAccountField, FormProblem } from './delete-account.form';
 import {
+  ACCOUNT_DELETE_GOOGLE_PATH,
   ACCOUNT_DELETE_PATH,
   APP_NAME,
   CONTACT_EMAIL,
@@ -16,11 +17,12 @@ import {
  * Plain template strings keep this dependency-free. Text that comes from a
  * request (the email typed into the form) always goes through escapeHtml().
  * The pages run no JavaScript and load nothing else: styles are inline, which
- * Helmet's Content-Security-Policy allows, and the logo is inline SVG.
+ * Helmet's Content-Security-Policy allows, and the logos are inline SVG.
  */
 
 const PRIVACY_URL = `/${PRIVACY_PATH}`;
 const DELETE_URL = `/${ACCOUNT_DELETE_PATH}`;
+const DELETE_GOOGLE_URL = `/${ACCOUNT_DELETE_GOOGLE_PATH}`;
 const MAIL_LINK = `<a href="mailto:${CONTACT_EMAIL}">${CONTACT_EMAIL}</a>`;
 
 /** The app's "paper & ink" look: outlined cards with hard, un-blurred offset shadows. */
@@ -77,6 +79,7 @@ body {
 .eyebrow { margin: 0; font-size: 0.75rem; font-weight: 700; letter-spacing: 0.1em; text-transform: uppercase; color: var(--muted); }
 h1 { margin: 6px 0 10px; font-size: clamp(1.9rem, 7vw, 2.6rem); line-height: 1.1; letter-spacing: -0.03em; }
 h2 { margin: 32px 0 10px; font-size: 1.3rem; line-height: 1.3; letter-spacing: -0.01em; }
+.card > h2:first-child { margin-top: 0; }
 h2::before {
   content: '';
   display: inline-block;
@@ -161,6 +164,24 @@ input[aria-invalid='true'] { border-color: var(--error); }
 }
 .button:active { transform: translate(4px, 4px); box-shadow: none; }
 .button.danger { color: var(--on-danger); background: var(--danger); }
+/* Google's "Sign in with Google" button, light theme, as its branding guidelines specify. */
+.google-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 48px;
+  padding: 0 12px;
+  font: 500 1rem/1.25 Roboto, 'Google Sans', system-ui, -apple-system, 'Segoe UI', Arial, sans-serif;
+  color: #1f1f1f;
+  background: #fff;
+  border: 1px solid #747775;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.google-button:hover { box-shadow: 0 1px 2px 0 rgba(60, 64, 67, 0.3), 0 1px 3px 1px rgba(60, 64, 67, 0.15); }
+.google-button svg { flex: none; width: 20px; height: 20px; }
 footer { font-size: 0.8rem; color: var(--muted); text-align: center; }
 footer nav { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 18px; }
 footer nav a { display: inline-block; padding: 4px 0; }
@@ -169,6 +190,7 @@ footer p { margin: 4px 0 0; }
   .wrap { padding-top: 32px; }
   .card { padding: 32px 36px; }
   .button { width: auto; }
+  .google-button { width: auto; padding: 0 20px 0 12px; }
 }
 `;
 
@@ -179,6 +201,15 @@ const LOGO_SVG =
   '<path d="M42 33h20a9 9 0 0 1 9 9v20a9 9 0 0 1-9 9H42a9 9 0 0 1-9-9V42a9 9 0 0 1 9-9z" fill="#fffcf6" stroke="#121212" stroke-width="3.5"/>' +
   '<path d="M42.5 52.5l7 6.5L62 45" fill="none" stroke="#121212" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>' +
   '<circle cx="70.5" cy="33.5" r="5.5" fill="#d7f75b" stroke="#121212" stroke-width="3"/>' +
+  '</svg>';
+
+/** Google's "G", exactly as in its sign-in button artwork. */
+const GOOGLE_LOGO_SVG =
+  '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48" aria-hidden="true" focusable="false">' +
+  '<path fill="#EA4335" d="M24 9.5c3.54 0 6.71 1.22 9.21 3.6l6.85-6.85C35.9 2.38 30.47 0 24 0 14.62 0 6.51 5.38 2.56 13.22l7.98 6.19C12.43 13.72 17.74 9.5 24 9.5z"/>' +
+  '<path fill="#4285F4" d="M46.98 24.55c0-1.57-.15-3.09-.38-4.55H24v9.02h12.94c-.58 2.96-2.26 5.48-4.78 7.18l7.73 6c4.51-4.18 7.09-10.36 7.09-17.65z"/>' +
+  '<path fill="#FBBC05" d="M10.53 28.59c-.48-1.45-.76-2.99-.76-4.59s.27-3.14.76-4.59l-7.98-6.19C.92 16.46 0 20.12 0 24c0 3.88.92 7.54 2.56 10.78l7.97-6.19z"/>' +
+  '<path fill="#34A853" d="M24 48c6.48 0 11.93-2.13 15.89-5.81l-7.73-6c-2.15 1.45-4.92 2.3-8.16 2.3-6.26 0-11.57-4.22-13.47-9.91l-7.98 6.19C6.51 42.62 14.62 48 24 48z"/>' +
   '</svg>';
 
 /** Inline favicon, so browsers don't request /favicon.ico from the API. */
@@ -235,7 +266,7 @@ export function privacyPolicyPage(): string {
 <section class="sticker">
 <h2>The short version</h2>
 <ul>
-<li>${APP_NAME} stores your name, your email address, a scrambled (hashed) form of your password, and the tasks you create. That's all.</li>
+<li>${APP_NAME} stores your name, your email address, a scrambled (hashed) form of your password or, if you sign in with Google, your Google account ID, and the tasks you create. That's all.</li>
 <li>It is used only to run the app. There are no ads, no analytics and no tracking, and your data is never sold.</li>
 <li>Your data travels over encrypted HTTPS connections and is stored with two hosting providers, Render and MongoDB Atlas.</li>
 <li>You can delete your account and all of your tasks at any time, in the app or on the web. Deletion is immediate and permanent.</li>
@@ -245,6 +276,7 @@ export function privacyPolicyPage(): string {
 <nav class="toc" aria-label="On this page">
 <ol>
 <li><a href="#collect">What we collect</a></li>
+<li><a href="#google">Google sign-in</a></li>
 <li><a href="#use">How we use it</a></li>
 <li><a href="#storage">Where it's stored</a></li>
 <li><a href="#device">On your phone</a></li>
@@ -263,7 +295,7 @@ export function privacyPolicyPage(): string {
 <p>When you create an account and use ${APP_NAME}, its server stores:</p>
 <dl>
 <dt>Account information</dt>
-<dd>Your name (shown in the app's greeting), your email address (used to sign in) and your password. The password is stored only as a bcrypt hash: a one-way, scrambled version that can check a password but can't be turned back into it, so nobody, including the developer, can read it.</dd>
+<dd>Your name (shown in the app's greeting), your email address (used to sign in) and your password. The password is stored only as a bcrypt hash: a one-way, scrambled version that can check a password but can't be turned back into it, so nobody, including the developer, can read it. If you sign in with Google, your Google account ID is stored as well, or instead of a password if you never set one (see <a href="#google">Google sign-in</a>).</dd>
 <dt>Your tasks</dt>
 <dd>What you enter for each task: its title, notes, scheduled date and time, deadline, priority, category and tags, whether it's done and when you finished it, and when it was created and last changed.</dd>
 <dt>Sign-in sessions</dt>
@@ -271,7 +303,13 @@ export function privacyPolicyPage(): string {
 <dt>Technical information</dt>
 <dd>The IP address of each request is used, in memory only, to limit repeated sign-in attempts. ${APP_NAME} doesn't store it, but it may appear in the hosting provider's request logs.</dd>
 </dl>
-<p><strong>What we don't collect:</strong> your location, contacts, photos or files, calendar, messages, device or advertising identifiers, usage analytics, crash reports, payment information or health data. The app contains no advertising, analytics or tracking code, and these web pages use no cookies.</p>
+<p><strong>What we don't collect:</strong> your location, contacts, photos or files, calendar, messages, device or advertising identifiers, usage analytics, crash reports, payment information or health data. The app contains no advertising, analytics or tracking code. These web pages set no cookies, except one that is strictly necessary while you delete your account with Google: it holds a random security code for the few minutes the sign-in takes, and expires after 10 minutes at most.</p>
+</section>
+
+<section id="google">
+<h2>Signing in with Google</h2>
+<p>If you choose <strong>Continue with Google</strong>, you pick a Google account and Google tells ${APP_NAME} that account's name, email address and Google account ID (a number that identifies the account). ${APP_NAME} stores them as your account information. It never sees your Google password and gets no access to anything else in your Google account, such as your email, contacts, files or photos.</p>
+<p>Google runs the sign-in itself, under <a href="https://policies.google.com/privacy">Google's privacy policy</a>. Apart from the sign-in, ${APP_NAME} sends nothing about you to Google. You can disconnect ${APP_NAME} in your Google account under <strong>Security → Your connections to third-party apps &amp; services</strong>. That stops Google sign-in for ${APP_NAME} but doesn't delete your ${APP_NAME} account; to delete it, see <a href="#deletion">below</a>.</p>
 </section>
 
 <section id="use">
@@ -311,8 +349,8 @@ export function privacyPolicyPage(): string {
 <h2>Deleting your account</h2>
 <p>You can delete your account whenever you like, in either of two ways:</p>
 <ul>
-<li><strong>In the app:</strong> go to <strong>Profile → Delete account</strong> and confirm with your password.</li>
-<li><strong>On the web:</strong> use the <a href="${DELETE_URL}">account deletion page</a>, which works even if you no longer have the app.</li>
+<li><strong>In the app:</strong> go to <strong>Profile → Delete account</strong> and confirm with your password, or by choosing your Google account if you sign in with Google.</li>
+<li><strong>On the web:</strong> use the <a href="${DELETE_URL}">account deletion page</a> with your email and password, or with Google. It works even if you no longer have the app.</li>
 </ul>
 <p>Either way, your account, all of your tasks and every sign-in session are deleted immediately and permanently. This can't be undone.</p>
 <p>If you can't use either option, for example because you've forgotten your password, email ${MAIL_LINK} from the address you signed up with and we'll delete the account for you. You can also email us to ask for a copy of your data.</p>
@@ -323,6 +361,7 @@ export function privacyPolicyPage(): string {
 <ul>
 <li>The app and the ${APP_NAME} server talk over HTTPS, so your data is encrypted in transit.</li>
 <li>Passwords are stored only as bcrypt hashes, and sign-in tokens only as SHA-256 hashes.</li>
+<li>Every Google sign-in is checked on the server: it must carry Google's signature and be issued for ${APP_NAME}.</li>
 <li>Sign-in tokens are short-lived and replaced each time they're used. If an old token is ever reused, every session on the account is signed out as a precaution.</li>
 <li>Repeated sign-in attempts are rate limited, and each account can only ever see its own tasks.</li>
 </ul>
@@ -356,12 +395,19 @@ export function privacyPolicyPage(): string {
 export interface DeleteAccountPageState {
   /** What the user typed, shown again after a mistake. Never the password. */
   email?: string;
+  /** Mistakes in the email and password form. */
   problems?: FormProblem[];
+  /** Offer "Delete with Google" (the server has the OAuth client secret). */
+  googleEnabled?: boolean;
+  /** A mistake in the Google form: its checkbox wasn't ticked. */
+  googleProblem?: FormProblem;
 }
 
 export function deleteAccountPage({
   email = '',
   problems = [],
+  googleEnabled = false,
+  googleProblem,
 }: DeleteAccountPageState = {}): string {
   const problemFor = (field: DeleteAccountField) => problems.find((p) => p.field === field);
   const fieldError = (field: DeleteAccountField) => {
@@ -397,7 +443,7 @@ ${problems
 
 <h2>What gets deleted</h2>
 <ul>
-<li>Your account: your name, email address and password hash.</li>
+<li>Your account: your name, email address, password hash and, if you use Google sign-in, your Google account ID.</li>
 <li>All of your tasks, including their notes, dates, deadlines, priorities, categories, tags and completion history.</li>
 <li>Every sign-in session, so all of your devices are signed out.</li>
 </ul>
@@ -407,11 +453,11 @@ ${problems
 <p class="small">The only other trace is the hosting provider's routine request logs, which can include IP addresses and are kept for a limited time under the provider's own retention rules. See the <a href="${PRIVACY_URL}">privacy policy</a> for details.</p>
 
 <h2>Prefer the app?</h2>
-<p>In ${APP_NAME}, go to <strong>Profile → Delete account</strong> and confirm with your password. Profile is the button with your initial at the top right of the home screen.</p>
+<p>In ${APP_NAME}, go to <strong>Profile → Delete account</strong> and confirm with your password, or with Google if you sign in with Google. Profile is the button with your initial at the top right of the home screen.</p>
 </section>
 
 <section class="card">
-<h2>Delete on the web</h2>
+<h2>Delete with your email and password</h2>
 <p>Enter the email address and password you use to sign in to ${APP_NAME}.</p>
 ${summary}
 <form method="post" action="${DELETE_URL}">
@@ -431,7 +477,50 @@ ${fieldError('confirm')}
 </div>
 <div><button class="button danger" type="submit">Delete my account</button></div>
 </form>
-<p class="small">Forgot your password? Email ${MAIL_LINK} from the address you signed up with and we'll delete the account for you.</p>
+<p class="small">${
+      googleEnabled ? 'Forgot your password?' : 'Forgot your password, or signed up with Google?'
+    } Email ${MAIL_LINK} from the address you signed up with and we'll delete the account for you.</p>
+</section>${googleEnabled ? googleDeletionSection(googleProblem) : ''}`,
+  });
+}
+
+/** "Signed up with Google?": a form that confirms deletion by choosing the Google account. */
+function googleDeletionSection(problem?: FormProblem): string {
+  const error = problem
+    ? `<p class="error" id="google-confirm-error">${escapeHtml(problem.message)}</p>`
+    : '';
+  const invalid = problem ? ' aria-invalid="true" aria-describedby="google-confirm-error"' : '';
+  return `
+
+<section class="card" id="google">
+<h2>Signed up with Google?</h2>
+<p>Confirm by choosing your Google account. The ${APP_NAME} account connected to it, or registered with its email address, is deleted straight away. Google only tells ${APP_NAME} the account's email address and ID.</p>
+<form method="post" action="${DELETE_GOOGLE_URL}">
+<div>
+${error}
+<label class="check"><input id="google-confirm" name="confirm" type="checkbox" value="${CONFIRM_VALUE}" required${invalid}><span>I understand that this permanently deletes my ${APP_NAME} account and all of my tasks, and that it can't be undone.</span></label>
+</div>
+<div><button class="google-button" type="submit">${GOOGLE_LOGO_SVG}<span>Continue with Google</span></button></div>
+</form>
+</section>`;
+}
+
+/**
+ * The outcome of "Delete with Google" when nothing was deleted (cancelled,
+ * expired, refused, or no matching account). `message` is HTML: escape
+ * anything in it that came from a request.
+ */
+export function googleDeletionProblemPage(title: string, message: string): string {
+  return page({
+    title,
+    description: title,
+    body: `<section class="card">
+<p class="eyebrow">Account deletion</p>
+<h1>${escapeHtml(title)}</h1>
+<div class="sticker warn" role="alert">
+<p>${message}</p>
+</div>
+<p><a class="button" href="${DELETE_URL}">Back to account deletion</a></p>
 </section>`,
   });
 }
@@ -456,6 +545,11 @@ const ERROR_TEXT: Record<number, { title: string; message: string }> = {
   400: {
     title: 'Please check your request',
     message: "Something in that request wasn't right. Go back to the page and try again.",
+  },
+  403: {
+    title: 'Please start from the deletion page',
+    message:
+      'For your safety, deleting an account with Google has to start from the account deletion page on this site. Go back to that page and try again.',
   },
   429: {
     title: 'Too many attempts',
