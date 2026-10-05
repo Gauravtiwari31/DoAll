@@ -1,5 +1,7 @@
 DoAll's first release on Google Play.
-• Sign in with Google, or with an email and password.
+• Works offline: tasks are saved on your phone and sync in the background.
+• Reminders and repeating tasks (daily, weekdays, weekly, monthly, yearly).
+• Sign in with Google, or with an email and password. Forgot your password? Reset it by email.
 • Delete your account and all of your tasks at any time, in the app (Profile → Delete account) or on the web.
 • Read the privacy policy from inside the app.
-• Plan with smart sort, quick views, search and filters, and swipe to complete or delete.
+• Export all your tasks as a file.

@@ -28,6 +28,8 @@ jobs:
           cache: npm
           cache-dependency-path: backend/package-lock.json
       - run: npm ci
+      # Known vulnerabilities in what runs on the server fail the build.
+      - run: npm audit --omit=dev --audit-level=high
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test -- --ci
@@ -50,6 +52,10 @@ jobs:
           cache: npm
           cache-dependency-path: mobile/package-lock.json
       - run: npm ci
+      # Reported, not enforced: the app's findings so far are all in React
+      # Native's own build tooling (Metro, the CLI), fixed by upgrading React Native.
+      - run: npm audit --omit=dev --audit-level=high
+        continue-on-error: true
       - run: npm run lint
       - run: npm run typecheck
       - run: npm test -- --ci

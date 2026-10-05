@@ -166,7 +166,17 @@ Open **Policy and programs → App content** and complete every declaration it l
 | **Health apps** | **My app doesn't provide any health features**. "Health" is only a task category label ([declaration](https://support.google.com/googleplay/android-developer/answer/14738291)). |
 | **News apps** | **No**, it isn't a news or magazine app. |
 | **Advertising ID** | **No**. DoAll doesn't use the advertising ID or declare the `AD_ID` permission ([Advertising ID](https://support.google.com/googleplay/android-developer/answer/6048248)). |
-| Anything else listed | DoAll asks only for internet access and vibration (the haptic tick), so permission declarations such as photos and videos, foreground services or exact alarms don't apply. |
+| Anything else listed | See the permissions below. None of them needs a declaration form: DoAll doesn't use `USE_EXACT_ALARM` (which Google restricts to alarm-clock and calendar apps), foreground services, or photo and video access. |
+
+**Permissions in 1.2.0**, for the store review and the **Exact alarms** question if Play Console asks:
+
+| Permission | Why |
+|---|---|
+| `INTERNET` | Sync with the DoAll server |
+| `VIBRATE` | The haptic tick when a task is completed |
+| `POST_NOTIFICATIONS` | Task reminders. Asked for (Android 13+) only when someone first turns a reminder on. |
+| `RECEIVE_BOOT_COMPLETED` | Puts reminders back after the phone restarts |
+| `SCHEDULE_EXACT_ALARM` | Reminders on the minute. Users grant it under **Alarms & reminders** (from DoAll's **Reminders not arriving?** screen); without it, reminders still arrive, up to ~10 minutes late. It's the user-granted permission, not the restricted `USE_EXACT_ALARM`. |
 
 #### Sign-in details
 

@@ -56,13 +56,19 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 
 ### Bonus
 
+- **Works offline** — tasks live in an on-device SQLite database and sync with the server in the background: last write wins per task, deletions spread to every device, and nothing typed offline is lost ([how sync works](#offline-first-sync)).
+- **Reminders** — local notifications at the task's time or up to a day before, scheduled by the phone itself, so they work offline and survive a restart. **Profile → Reminders not arriving?** checks the settings that silence them (notifications, exact alarms, battery savers, with tips for Xiaomi, Oppo, Vivo, Samsung and others).
+- **Repeating tasks** — hourly, daily, weekdays, weekly on chosen days, monthly, yearly, every N of them, at the same local time across daylight saving changes. Ticking one off moves it to its next time.
+- **Email confirmation & password reset** — by email links, when the server has an email service ([setup](docs/operations.md#2-email-confirmation-and-password-reset)).
+- **Export my data** — saves every task as a JSON file wherever the user chooses.
+- **Crash reports** — Sentry in the app and the server, off unless given a DSN ([setup](docs/operations.md#4-crash-reports-with-sentry)).
 - **Smart sort** — blends priority, deadline pressure and schedule into one score ([formula below](#smart-sort)). The top task gets an **Up next** badge, and each task's detail screen shows a **"Why it's ranked here"** bar that breaks its score down.
 - **Four more sort orders** — deadline, scheduled time, priority, newest.
 - **Filtering & search** — quick views (*All, Today, Upcoming, Overdue, Done*) with live counts, priority and category filters, and search across titles, notes and `#tags`.
 - **Categories & tags** — six colour-coded categories plus up to five free-form tags per task.
 - **Dashboard** — today's progress ring, overdue count and the recommended next task on the home screen; totals, completion rate and an open-tasks-by-category chart on the profile screen.
 - **Light, dark & system themes**, persisted on the device.
-- **Feels fast** — optimistic updates with automatic rollback, skeleton loaders, pull-to-refresh, animated cards and a haptic tick when you finish something.
+- **Feels fast** — every change is saved on the phone first, so the list updates instantly; pull-to-refresh syncs, cards animate and finishing something gives a haptic tick.
 - **Hardened auth** — short-lived access tokens, rotating refresh tokens with reuse detection, rate limiting on credential endpoints, and a session that survives app restarts.
 - **Sign in with Google** — through Android's Credential Manager, verified on the server against Google's keys; an existing email account is connected only after its password is given once ([setup](docs/google-sign-in.md)).
 - **Housekeeping** — bulk "clear completed", discard-changes guard on the editor, Swagger docs for the API.
@@ -234,6 +240,10 @@ Render's free instances spin down after **15 minutes** without traffic, and waki
 - **Never sleeps:** a paid instance (Render's *Starter*), or a server of your own such as Google Cloud's always-free `e2-micro` VM.
 - **Stopgap:** a free monitor such as [cron-job.org](https://cron-job.org) requesting `https://<your-service>.onrender.com/api/health` every 10 minutes keeps it awake, and one service running all month fits within the free 750 instance-hours. Render's staff discourage this on the free plan, and Render may change the rules, so don't build a launch on it. Ping `/api/health`, not `/robots.txt`: Render answers that one itself without waking the service.
 
+### Running it
+
+[docs/operations.md](docs/operations.md) is the owner's checklist for the hosted service: the keep-alive monitor, the email service for confirmation and password reset, nightly encrypted backups (and testing a restore), crash reports with Sentry, least-privilege database users, a custom domain, and testing reminders on real phones.
+
 ---
 
 ## Publishing on Google Play
@@ -302,13 +312,16 @@ sequenceDiagram
 
 ### State management
 
-Redux Toolkit holds the app state in three slices:
+Redux Toolkit holds the app state in four slices:
 
 | Slice | Holds | Notes |
 |---|---|---|
 | `auth` | status (`restoring` / `signedOut` / `signedIn`), user, submit state, notices | Navigation is derived from `status`, so logged-out users can't navigate back into the app. |
-| `tasks` | tasks normalised with `createEntityAdapter`, load status, active filters | Completing and deleting are **optimistic** and roll back on failure. Cleared on logout or session expiry. |
+| `tasks` | tasks normalised with `createEntityAdapter`, load status, active filters | A mirror of the on-device database: every change is written there first. Cleared on logout or session expiry. |
+| `sync` | sync status (`idle` / `syncing` / `offline` / `unverified` / `error`), last sync, last error, failures, changes waiting | Shown on **Profile → Backup & sync**. |
 | `preferences` | theme mode, sort order | Saved to storage by listener middleware. |
+
+Listener middleware ([`store/listeners.ts`](mobile/src/store/listeners.ts)) does the side effects: after a change it schedules a sync (debounced, retried with back-off when offline) and plans reminders again.
 
 The list itself comes from **memoised selectors** (`selectVisibleTasks`, `selectViewCounts`, `selectDashboard`) that combine filters, sort order and the current minute. Tokens deliberately live **outside** Redux in a small `session` service: they're secrets rather than UI state, and nothing should re-render when they rotate. Short-lived UI state, like form fields and open sheets, stays in component state.
 
@@ -326,6 +339,21 @@ All colours and type sizes come from [`mobile/src/theme`](mobile/src/theme); com
 
 ---
 
+### Offline-first sync
+
+The phone's SQLite database ([`db/taskStore.ts`](mobile/src/db/taskStore.ts), op-sqlite, versioned migrations) is the source of truth; the server is the backup and the meeting point between devices.
+
+- Tasks get their ID on the phone (a UUID), so they can be created offline.
+- A local change marks the row **dirty** and stamps `updatedAt` (never earlier than the task's previous change, even if the clock went backwards). Deletions leave a **tombstone** until the server has it.
+- `POST /sync` pushes dirty rows (200 per request) and pulls what changed on the server since the phone's **cursor**. The cursor follows the server's own clock (`serverUpdatedAt`), never device clocks, so devices whose clocks disagree still see every change. Changes from the last 5 seconds are handed out on the next sync, so a slow write can't slip behind a cursor.
+- Conflicts: **last write wins per task** by `updatedAt`. A refused change comes back with the winning version, and a pulled task never overwrites a newer local change that's still waiting to be sent.
+- Server tombstones keep only the task's ID and dates, and expire after 60 days (TTL index). A phone that hasn't synced for longer gets `reset` and starts over, keeping its unsent changes.
+- Syncs run when the app opens or comes to the foreground, 2 s after a change, on pull-to-refresh, and on retry (5 s doubling up to 5 min).
+
+**Reminders** ([`planner.ts`](mobile/src/features/reminders/planner.ts), [`reminders/`](mobile/android/app/src/main/java/com/doall/reminders)): the app plans every reminder for the next two months (up to 64 per repeating task, 500 in all) and hands the list to a small native module. Android only ever holds **one** alarm, for the next reminder; when it fires, the module shows what's due and sets the alarm for the next one. So the queue isn't limited by the phone's alarm cap, edits never need individual cancellations, and a receiver re-arms it after a reboot, an app update or a clock change. Alarms are exact when the user allows *Alarms & reminders*, otherwise within 10 minutes.
+
+**Repeats** ([`recurrence.ts`](mobile/src/features/tasks/recurrence.ts)) are computed in the task's IANA time zone with `Intl`, so 9:00 stays 9:00 across daylight saving changes and when the phone travels. "Monthly on the 31st" uses the last day of shorter months; 29 February repeats on 28 February in other years.
+
 ## API reference
 
 Base URL: `http://localhost:3000/api`. Every route except `auth/register`, `auth/login`, `auth/google`, `auth/refresh`, `auth/logout` and `health` requires `Authorization: Bearer <accessToken>`.
@@ -338,6 +366,9 @@ Base URL: `http://localhost:3000/api`. Every route except `auth/register`, `auth
 | `POST` | `/auth/refresh` | `{ refreshToken }` → new `{ user, tokens }` (old refresh token is revoked) |
 | `POST` | `/auth/logout` | `{ refreshToken }` → `204` |
 | `GET` | `/auth/me` | Current user |
+| `POST` | `/auth/password/forgot` | `{ email }` → `204` whether or not the address has an account; emails a reset link. `501` when the server can't send email |
+| `POST` | `/auth/verify-email/resend` | `204`; emails a new confirmation link to the signed-in user |
+| `POST` | `/sync` | `{ cursor?, changes: Task[] }` (at most 200) → `{ changes, cursor, hasMore, reset }`. See [offline-first sync](#offline-first-sync). Uploading changes is `403` with `code: EMAIL_NOT_VERIFIED` until the address is confirmed, when the server sends email |
 | `DELETE` | `/auth/me` | `{ password }`, or `{ googleIdToken }` for an account without a password → `204`. Permanently deletes the account, its tasks and every session; a wrong confirmation is `403` |
 | `GET` | `/tasks` | List. Query: `status` (`all`/`active`/`completed`/`overdue`), `priority`, `category`, `tag`, `search`, `from`, `to`, `sort` (`smart`/`deadline`/`scheduled`/`priority`/`created`) |
 | `GET` | `/tasks/stats` | Counters; `tzOffset` (minutes, from `Date#getTimezoneOffset`) defines "today" |
@@ -349,9 +380,11 @@ Base URL: `http://localhost:3000/api`. Every route except `auth/register`, `auth
 | `DELETE` | `/tasks/completed` | Delete every completed task → `{ deleted }` |
 | `GET` | `/health` | Liveness + database status |
 
-`user` is `{ id, name, email, signInMethods, createdAt }`, where `signInMethods` lists `password` and/or `google`. `tokens` is `{ accessToken, refreshToken, expiresIn }`, where `expiresIn` is the access token's lifetime in seconds. Validation errors return `400` with a `message` array; unknown fields are rejected. A deadline earlier than the scheduled time is rejected.
+`user` is `{ id, name, email, signInMethods, emailVerified, createdAt }`, where `signInMethods` lists `password` and/or `google`. `tokens` is `{ accessToken, refreshToken, expiresIn }`, where `expiresIn` is the access token's lifetime in seconds. Validation errors return `400` with a `message` array; unknown fields are rejected. A deadline earlier than the scheduled time is rejected.
 
-Two public web pages live outside `/api`: `GET /privacy` (privacy policy) and `GET /account/delete`, whose form (`POST /account/delete` with email, password and a confirmation) deletes an account without the app. With `GOOGLE_CLIENT_SECRET` set, the page also offers **Signed up with Google?**: `POST /account/delete/google` sends the browser to Google's account chooser, and `GET /account/delete/google/callback` deletes the account Google confirms.
+The `/tasks` routes are what app versions before 1.2.0 use; they see the same tasks as `/sync` (deletions there leave tombstones too).
+
+Public web pages live outside `/api`: `GET /verify-email?token=` and `GET`/`POST /reset-password` (the links in emails), `GET /privacy` (privacy policy) and `GET /account/delete`, whose form (`POST /account/delete` with email, password and a confirmation) deletes an account without the app. With `GOOGLE_CLIENT_SECRET` set, the page also offers **Signed up with Google?**: `POST /account/delete/google` sends the browser to Google's account chooser, and `GET /account/delete/google/callback` deletes the account Google confirms.
 
 ---
 
@@ -360,32 +393,36 @@ Two public web pages live outside `/api`: `GET /privacy` (privacy policy) and `G
 ```bash
 # backend
 cd backend
-npm test             # unit: smart ordering, auth service (rotation, reuse detection, Google sign-in, account deletion), Google token checks, env validation, HTML escaping
+npm test             # unit: smart ordering, auth service (rotation, reuse detection, Google sign-in, account deletion, email links), Google token checks, email service, env validation, HTML escaping
 npm run test:e2e     # end-to-end against a real MongoDB (docker compose up -d mongo)
 npm run lint
 
 # mobile
 cd mobile
-npm test             # ordering, selectors, slices (incl. Google sign-in and account deletion), Google sign-in service, validation, dates, URLs, API client refresh logic, TaskCard
+npm test             # sync engine (two phones + a fake server, on real SQLite), repeats (month ends, leap years, DST, time zones), reminder planning, task changes, ordering, selectors, slices, Google sign-in, validation, dates, URLs, API client, TaskCard
 npm run typecheck
 npm run lint
 ```
 
 | Suite | Tests |
 |---|---|
-| Backend unit | 51 |
-| Backend e2e | 30 — registration, duplicates, validation, login, protected routes, refresh rotation & reuse detection, logout, CRUD, filters, search, smart sort, ownership isolation, stats, account deletion (app and web), privacy and deletion pages, Google sign-in and connecting accounts, deletion with Google (app and web) |
-| Mobile | 75 |
+| Backend unit | 65 |
+| Backend e2e | 42 — registration, duplicates, validation, login, protected routes, refresh rotation & reuse detection, logout, CRUD, filters, search, smart sort, ownership isolation, stats, account deletion (app and web), privacy and deletion pages, Google sign-in and connecting accounts, deletion with Google (app and web), email confirmation, password reset, sync (push/pull, last write wins, clock skew, tombstones, reset, paging, older app versions) |
+| Mobile | 116 |
 
 ---
 
 ## Notes & trade-offs
 
 - **Token storage.** Tokens are kept in AsyncStorage, which is app-private storage, and `allowBackup` is off. For production I'd switch to Android Keystore-backed storage such as `react-native-keychain`. Only [`services/session.ts`](mobile/src/services/session.ts) would change.
-- **Sorting on the device.** A personal task list is small, so the app fetches it once and filters and sorts locally for instant feedback. The API offers the same filters and sorts for other clients.
+- **Sorting on the device.** A personal task list is small and lives on the phone, so filtering and sorting happen there instantly. The API offers the same filters and sorts for other clients.
+- **Own auth instead of Firebase.** The API keeps its own accounts (bcrypt, rotating refresh tokens, Google sign-in verified server-side) rather than Firebase Auth: existing accounts keep working, and builds don't need a Firebase project. Email confirmation and password reset go through an email API (Brevo or Resend), never SMTP.
+- **No push to other devices.** Another phone picks up changes when it opens or comes to the foreground, not instantly; FCM data messages could nudge it later.
+- **Last write wins** per task, not per field: if two phones edit different fields of the same task while offline, the later edit replaces the whole task.
+- **Backups** run nightly on GitHub Actions, encrypted, because MongoDB Atlas's free tier keeps none ([operations](docs/operations.md#3-nightly-database-backups)).
 - **Plain HTTP is allowed for self-hosting.** The hosted API is HTTPS-only, but the server button can point the app at a backend on a laptop or LAN, so the app's [network security config](mobile/android/app/src/main/res/xml/network_security_config.xml) permits HTTP even in release builds. It only applies to an address the user typed in.
 - **Signing.** Release builds are signed with a private upload key kept outside the repository (CI reads it from secrets), and Google Play re-signs them with Play App Signing. Without the key, Gradle falls back to the debug keystore and warns that the build can't go to Google Play.
 - **Deleted accounts.** Deleting an account removes the user, every task and every session at once, and the API refuses any access token that belongs to a deleted account, so nothing new can be stored for it.
 - **Google sign-in without an SDK.** The app calls Android's Credential Manager through a small native module of its own ([`googlesignin/`](mobile/android/app/src/main/java/com/doall/googlesignin)) instead of a React Native library: Google deprecated the old Sign-In SDK that the free libraries wrap. The server uses Google's official `google-auth-library` to check tokens.
-- **Undo for delete** recreates the task with the same content and status (it gets a new id).
+- **Undo for delete** brings the task back with the same ID and content.
 - **Platform.** The app targets Android, per the brief. The iOS folder is the untouched React Native template.

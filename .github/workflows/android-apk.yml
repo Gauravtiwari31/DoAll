@@ -101,10 +101,12 @@ jobs:
       #    the hosted backend by default. Unset = local backend (10.0.2.2).
       #  - DOALL_GOOGLE_WEB_CLIENT_ID, the server's Google OAuth client ID,
       #    turns on "Continue with Google" (docs/google-sign-in.md).
+      #  - DOALL_SENTRY_DSN turns on crash reporting (docs/operations.md).
       - name: Write the build settings
         env:
           DOALL_API_URL: ${{ vars.DOALL_API_URL }}
           DOALL_GOOGLE_WEB_CLIENT_ID: ${{ vars.DOALL_GOOGLE_WEB_CLIENT_ID }}
+          DOALL_SENTRY_DSN: ${{ vars.DOALL_SENTRY_DSN }}
         run: node scripts/write-build-env.mjs
 
       - name: Restore the upload key
@@ -121,6 +123,11 @@ jobs:
           DOALL_UPLOAD_STORE_PASSWORD: ${{ secrets.ANDROID_UPLOAD_STORE_PASSWORD }}
           DOALL_UPLOAD_KEY_ALIAS: ${{ secrets.ANDROID_UPLOAD_KEY_ALIAS }}
           DOALL_UPLOAD_KEY_PASSWORD: ${{ secrets.ANDROID_UPLOAD_KEY_PASSWORD }}
+          # Optional: uploads the JavaScript source maps for readable crash
+          # reports. Unset = no upload (see app/build.gradle).
+          SENTRY_AUTH_TOKEN: ${{ secrets.SENTRY_AUTH_TOKEN }}
+          SENTRY_ORG: ${{ vars.SENTRY_ORG }}
+          SENTRY_PROJECT: ${{ vars.SENTRY_PROJECT }}
         # Phones (arm64 / armv7) and x86_64 emulators and Chromebooks.
         run: |
           tasks="assembleRelease"

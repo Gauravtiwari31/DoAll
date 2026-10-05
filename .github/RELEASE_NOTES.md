@@ -2,6 +2,12 @@
 
 ### What's new in 1.2.0
 
+- **Works offline.** Your tasks live on your phone and sync with the server in the background: add, edit and tick off tasks with no connection, and changes catch up once you're back online. Edits on two phones are merged, keeping the latest change of each task.
+- **Reminders**: get a notification at the task's time, or 10 minutes to a day before. They come from your phone itself, so they work offline and after a restart. **Profile → Reminders not arriving?** checks the phone settings that can silence them.
+- **Repeating tasks**: daily, on weekdays, weekly on chosen days, monthly, yearly or hourly, every N of them. Ticking one off moves it to its next time. "Monthly on the 31st" uses the last day of shorter months, and 29 February repeats on the 28th in other years.
+- **Forgot your password?** Get a reset link by email from the log in screen.
+- **Confirm your email** to back up and sync your tasks. Google accounts are already confirmed.
+- **Export my data** (Profile) saves all your tasks as a JSON file wherever you choose.
 - **Continue with Google**: sign up or log in with your Google account. If you already have a DoAll account with the same email address, enter its password once to connect the two.
 - **Delete your account** whenever you like: **Profile → Delete account** in the app, or [on the web](https://doall-api-m1yy.onrender.com/account/delete), confirming with your password or with Google. Your account, all of your tasks and every sign-in session are removed immediately and permanently.
 - **Privacy policy**, linked from the sign-up and profile screens ([read it here](https://doall-api-m1yy.onrender.com/privacy)).
@@ -24,7 +30,8 @@ The server runs on a free plan and sleeps when nobody has used it for a while. I
 ### What's inside
 
 - Email/password or Google accounts, with short-lived access tokens and rotating refresh tokens
-- Tasks with date-time, deadline, priority, category and tags
+- Tasks with date-time, deadline, priority, category, tags, reminders and repeats
+- Offline-first: tasks are stored on the phone and synced in the background
 - Smart sort (priority × deadline pressure × schedule) with an "Up next" pick and a per-task score breakdown
 - Today / Upcoming / Overdue / Done views, filters and search
 - Swipe right to complete, swipe left to delete, both with undo

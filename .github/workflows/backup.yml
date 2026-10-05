@@ -1,0 +1,70 @@
+# Nightly backup of the production database. MongoDB Atlas's free tier (M0)
+# keeps no backups of its own.
+#  - Copies every collection with backend/scripts/backup.mjs.
+#  - Encrypts the copy with BACKUP_PASSPHRASE (gpg, AES-256): the repository
+#    is public, and anyone signed in to GitHub can download its artifacts.
+#  - Keeps it as the "doall-backup-<date>" artifact for 30 days.
+# Needs the secrets MONGODB_URI (a read-only database user is enough) and
+# BACKUP_PASSPHRASE. Restoring: docs/operations.md.
+name: Database backup
+
+on:
+  schedule:
+    - cron: '30 21 * * *' # 03:00 in India
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    defaults:
+      run:
+        working-directory: backend
+    env:
+      HAS_SECRETS: ${{ secrets.MONGODB_URI != '' && secrets.BACKUP_PASSPHRASE != '' }}
+    steps:
+      - name: Check the secrets
+        if: env.HAS_SECRETS != 'true'
+        working-directory: .
+        run: |
+          echo "::warning::Set the MONGODB_URI and BACKUP_PASSPHRASE secrets to back up the database (docs/operations.md)."
+
+      - uses: actions/checkout@v4
+        if: env.HAS_SECRETS == 'true'
+
+      - uses: actions/setup-node@v4
+        if: env.HAS_SECRETS == 'true'
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backend/package-lock.json
+
+      - name: Install dependencies
+        if: env.HAS_SECRETS == 'true'
+        run: npm ci --omit=dev
+
+      - name: Back up and encrypt
+        if: env.HAS_SECRETS == 'true'
+        env:
+          MONGODB_URI: ${{ secrets.MONGODB_URI }}
+          BACKUP_PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+        run: |
+          name="doall-backup-$(date -u +%Y-%m-%d)"
+          node scripts/backup.mjs "$RUNNER_TEMP/$name"
+          tar -czf "$RUNNER_TEMP/$name.tar.gz" -C "$RUNNER_TEMP" "$name"
+          gpg --batch --yes --pinentry-mode loopback --passphrase-fd 0 \
+            --symmetric --cipher-algo AES256 \
+            --output "$RUNNER_TEMP/$name.tar.gz.gpg" "$RUNNER_TEMP/$name.tar.gz" <<< "$BACKUP_PASSPHRASE"
+          rm -rf "$RUNNER_TEMP/$name" "$RUNNER_TEMP/$name.tar.gz"
+          echo "BACKUP_NAME=$name" >> "$GITHUB_ENV"
+
+      - uses: actions/upload-artifact@v4
+        if: env.HAS_SECRETS == 'true'
+        with:
+          name: ${{ env.BACKUP_NAME }}
+          path: ${{ runner.temp }}/${{ env.BACKUP_NAME }}.tar.gz.gpg
+          retention-days: 30
+          if-no-files-found: error

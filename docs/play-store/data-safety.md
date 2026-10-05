@@ -15,14 +15,19 @@ Google's rules quoted below come from [Provide information for Google Play's Dat
 | Name and email address, typed in or, with Sign in with Google, from the Google account the user chose | DoAll server (MongoDB Atlas) | Until the account is deleted |
 | Password, for accounts that use one | Server keeps only a bcrypt hash; the password itself is never stored or readable | Until the account is deleted |
 | Google account ID, for accounts that sign in with Google | DoAll server | Until the account is deleted |
-| Tasks: title, notes, scheduled date-time, deadline, priority, category, tags, completion status and time, created and updated times | DoAll server | Until the task or the account is deleted |
+| Tasks: title, notes, scheduled date-time, deadline, priority, category, tags, reminder, repeat rule, time zone, completion status and time, created and updated times | The phone (its own database, so the app works offline) and the DoAll server (backup and sync) | Until the task or the account is deleted. A deleted task's content goes at once; a marker with only its ID and dates stays up to 60 days for sync. |
+| Email confirmation: whether the address is confirmed, SHA-256 hashes of pending confirmation and password reset links | DoAll server | Links expire after 3 days (confirmation) and 1 hour (reset) |
+| Encrypted nightly copies of the database | GitHub Actions artifacts, AES-256 encrypted | 30 days |
+| Crash reports (only in builds with `DOALL_SENTRY_DSN`, and on a server with `SENTRY_DSN`): the error, the code location, app version, phone model and Android version; no account or task data | Sentry | Up to 90 days |
 | Sessions: SHA-256 hashes of refresh tokens with creation and expiry times, at most 5 devices | DoAll server | Until logout, expiry or account deletion |
 | IP address of each request | Server memory, briefly, for rate limiting (not stored by DoAll); may appear in the hosting provider's request logs | — |
 | Session tokens, cached name and email, theme and sort preferences, a custom server address | The phone only: app-private storage, excluded from Android cloud backup and device-to-device transfer | Until logout or uninstall |
 
-**Not collected:** location, contacts, photos or files, calendar, messages, device or advertising identifiers, analytics, crash reports, payment information, health data. The app contains no ads and no analytics or tracking SDKs.
+**Not collected:** location, contacts, photos or files, calendar, messages, device or advertising identifiers, analytics, payment information, health data. The app contains no ads and no analytics or tracking SDKs. Reminders are scheduled on the phone and never touch the server.
 
-**Service providers** that process data on DoAll's behalf: **Render** (API hosting, Singapore region) and **MongoDB Atlas** (database hosting). Nothing is sold or given to anyone for their own purposes.
+**Crash reports depend on the build.** The Sentry SDK is in the app, but it only starts when the build was given a DSN (`DOALL_SENTRY_DSN`). Without one, nothing is sent and the crash rows below stay unselected. With one, select them before releasing that build.
+
+**Service providers** that process data on DoAll's behalf: **Render** (API hosting, Singapore region), **MongoDB Atlas** (database hosting), **GitHub** (encrypted backups), the **email service** that sends confirmation and reset emails (Brevo or Resend, whichever `MAIL_PROVIDER` names) and, if enabled, **Sentry** (crash reports). Nothing is sold or given to anyone for their own purposes.
 
 **Deletion:** in the app (**Profile → Delete account**) or on the web at <https://doall-api-m1yy.onrender.com/account/delete>, confirmed with the password or with Google. Either one removes the account, every task and every session immediately and permanently.
 
@@ -71,7 +76,7 @@ Leave everything else unselected:
 | Location (approximate and precise) | No location permission, and IP addresses are never used to work out where someone is. |
 | Device or other IDs | DoAll reads no device, advertising or Firebase identifiers. The account ID is already declared under User IDs. |
 | App activity: App interactions, In-app search history, Installed apps, Other actions | No analytics. Search and filters run on the phone, and completing a task is part of the task record declared above. |
-| App info and performance: Crash logs, Diagnostics, Other app performance data | No crash reporting or diagnostics SDK. |
+| App info and performance: Crash logs, Diagnostics, Other app performance data | Only while the build has no Sentry DSN. **With `DOALL_SENTRY_DSN` set, select Crash logs and Diagnostics** (Collected, not shared, not ephemeral, Required, purposes **Analytics** and **App functionality**). |
 | Calendar | Tasks have dates, but DoAll never reads the phone's calendar. |
 | Health and fitness | "Health" is just one of the six task categories a person can pick; DoAll asks for no medical or fitness data. |
 | Financial info, Messages, Photos and videos, Audio files, Files and docs, Contacts, Web browsing | Not accessed at all. |
@@ -96,8 +101,8 @@ Notes on the answers that aren't obvious:
 - **Collected only, never shared.** Render and MongoDB Atlas store and serve the data on DoAll's instructions, which makes them service providers, not third parties.
 - **Password processed ephemerally: No.** The password itself is only used in memory, but a hash derived from it is stored for as long as the account exists.
 - **Password optional.** People who sign in with Google never give one. (If Google sign-in isn't live yet, answer **Required**.)
-- **Tasks are required.** There is no offline or local-only mode: the to-do list itself is the data stored on the server.
-- **Purposes.** Google defines App functionality as features of the app, including authenticating the user, and Account management as creating, signing in to and verifying an account. Nothing is used for analytics, developer communications, advertising, personalization or fraud prevention, so none of those are ticked. DoAll sends no emails, so Developer communications doesn't apply either.
+- **Tasks are required.** The app keeps tasks on the phone and works offline, but it still requires an account and sends every task to the server for backup and sync.
+- **Purposes.** Google defines App functionality as features of the app, including authenticating the user, and Account management as creating, signing in to and verifying an account. Nothing is used for analytics (crash reports aside, see above), developer communications, advertising, personalization or fraud prevention, so none of those are ticked. The only emails confirm the address and reset passwords, which is Account management, not Developer communications.
 
 ---
 

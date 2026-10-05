@@ -35,3 +35,17 @@ services:
         sync: false
       - key: GOOGLE_CLIENT_SECRET
         sync: false
+      # Emails for confirming addresses and resetting passwords (optional;
+      # without them sync doesn't wait for a confirmed address). brevo or
+      # resend, its API key, and the sender, e.g. "DoAll <you@example.com>".
+      # The links point at RENDER_EXTERNAL_URL, which Render sets itself.
+      # See docs/operations.md.
+      - key: MAIL_PROVIDER
+        sync: false
+      - key: MAIL_API_KEY
+        sync: false
+      - key: MAIL_FROM
+        sync: false
+      # Crash reports (optional): the Sentry project's DSN.
+      - key: SENTRY_DSN
+        sync: false
