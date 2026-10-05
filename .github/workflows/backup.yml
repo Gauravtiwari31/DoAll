@@ -61,7 +61,7 @@ jobs:
           rm -rf "$RUNNER_TEMP/$name" "$RUNNER_TEMP/$name.tar.gz"
           echo "BACKUP_NAME=$name" >> "$GITHUB_ENV"
 
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: env.HAS_SECRETS == 'true'
         with:
           name: ${{ env.BACKUP_NAME }}
