@@ -37,7 +37,7 @@ The default is the local backend, unless the build was given a hosted URL. CI wr
 | `./gradlew assembleRelease` | `app/build/outputs/apk/release/app-release.apk`, to install directly |
 | `./gradlew bundleRelease` | `app/build/outputs/bundle/release/app-release.aab`, the app bundle Google Play takes |
 
-- **Package ID:** `io.github.gauravtiwari31.doall` (the Kotlin code stays in `com.doall`). It can never change once the app is on Google Play.
+- **Package ID:** `io.github.gauravtiwari31.doallapp` (the Kotlin code stays in `com.doall`). It can never change once the app is on Google Play.
 - **Version:** set it only in `package.json` (`"version": "1.2.0"`). Gradle uses it as `versionName` and derives `versionCode = major × 10000 + minor × 100 + patch`; the Profile screen shows the same value.
 - **Signing:** `npm run play:upload-key` creates the private upload key outside the repository ([`scripts/create-upload-key.mjs`](scripts/create-upload-key.mjs); `-- --github` also stores it as CI secrets). Gradle reads `DOALL_UPLOAD_STORE_FILE`, `DOALL_UPLOAD_STORE_PASSWORD`, `DOALL_UPLOAD_KEY_ALIAS` and `DOALL_UPLOAD_KEY_PASSWORD` from `~/.gradle/gradle.properties` or the environment; without them it signs with the debug key and warns that Google Play will reject the build.
 - **R8** shrinks and obfuscates release builds; app-specific keep rules are in [`android/app/proguard-rules.pro`](android/app/proguard-rules.pro). The mapping file and native debug symbols are packed into the app bundle.

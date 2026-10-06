@@ -1,6 +1,6 @@
 # Data safety form: DoAll's answers
 
-Exact answers for the **Data safety** form in Play Console (**Policy and programs → App content → Data safety → Start**), for DoAll 1.2.0 (`io.github.gauravtiwari31.doall`) talking to the hosted server.
+Exact answers for the **Data safety** form in Play Console (**Policy and programs → App content → Data safety → Start**), for DoAll 1.2.0 (`io.github.gauravtiwari31.doallapp`) talking to the hosted server.
 
 The answers, the [privacy policy](https://doall-api-m1yy.onrender.com/privacy) and the app must describe the same thing. When the app starts handling data differently (a new SDK, a new field, a new provider), update all three together. The [publishing guide](README.md) says where this form fits in.
 

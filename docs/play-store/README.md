@@ -4,7 +4,7 @@ The owner's guide to getting DoAll onto Google Play and keeping it there. Work t
 
 | | |
 |---|---|
-| **Package name** | `io.github.gauravtiwari31.doall`. It can never change once a bundle is uploaded. The Kotlin namespace stays `com.doall`. |
+| **Package name** | `io.github.gauravtiwari31.doallapp`. It can never change once a bundle is uploaded. The Kotlin namespace stays `com.doall`. |
 | **App name / store title** | DoAll / `DoAll: Smart To-Do List` |
 | **Developer** | Gaurav Tiwari (personal account) |
 | **Contact email** | gauravt9431@gmail.com |
@@ -13,7 +13,7 @@ The owner's guide to getting DoAll onto Google Play and keeping it there. Work t
 | **Account deletion** | https://doall-api-m1yy.onrender.com/account/delete |
 | **Sign in with Google** | Optional, set up with [docs/google-sign-in.md](../google-sign-in.md). The Play version needs the app signing key's fingerprint, which exists after the first upload. |
 | **First Play version** | `1.2.1`, version code `10201` |
-| **Listing, once live** | https://play.google.com/store/apps/details?id=io.github.gauravtiwari31.doall |
+| **Listing, once live** | https://play.google.com/store/apps/details?id=io.github.gauravtiwari31.doallapp |
 
 Play Console menus move around from time to time. The paths below match Google's help pages as of October 2026, and every rule links to the official page it comes from.
 
@@ -270,7 +270,7 @@ After this first upload:
 
 - **Test and release → App bundle explorer:** version code `10201`, target SDK 36, and no warnings. Play Console checks [16 KB page size](https://developer.android.com/guide/practices/page-sizes) compatibility here; DoAll's native code comes from React Native 0.87, which supports 16 KB pages ([React Native 0.77 notes](https://reactnative.dev/blog/2025/01/21/version-0.77)).
 - **Sign in with Google:** open **Test and release → App integrity → Play app signing**, copy the *App signing key certificate* SHA-1 and add it as an Android client in Google Cloud ([step 3 of the Google sign-in guide](../google-sign-in.md#3-create-the-android-clients-app)). Until then, Continue with Google fails in every copy installed from Google Play. Then try it from the internal testing install.
-- **Android developer verification** page, **Package names** tab: `io.github.gauravtiwari31.doall` should show as registered. Google registers Play apps automatically, and every Play package must be registered since 30 September 2026 ([registering Play package names](https://support.google.com/googleplay/android-developer/answer/16984799)). Register it there yourself if it isn't.
+- **Android developer verification** page, **Package names** tab: `io.github.gauravtiwari31.doallapp` should show as registered. Google registers Play apps automatically, and every Play package must be registered since 30 September 2026 ([registering Play package names](https://support.google.com/googleplay/android-developer/answer/16984799)). Register it there yourself if it isn't.
 - **The GitHub APK** is signed with the upload key, not with Google's app signing key. Android devices start requiring apps from verified developers outside Google Play in Brazil, Indonesia, Singapore and Thailand from 30 September 2026, and worldwide from 2027 ([developer verification](https://developer.android.com/developer-verification)). To keep the GitHub APK installable there, add the upload key's SHA-256 fingerprint (step 1) as an **additional key** on the same page. Play Console may ask for proof: a snippet it gives you goes into `android/app/src/main/assets/adi-registration.properties` in a release APK signed with that key ([adding additional keys](https://support.google.com/googleplay/android-developer/answer/16762301)).
 
 ### Closed testing: 12 testers for 14 days
@@ -290,7 +290,7 @@ When the 12-testers-for-14-days condition is met, **Dashboard → Apply for prod
 1. **Test and release → Production → Countries / regions**: add every country where DoAll should be available.
 2. **Create new release → Add from library** (the same `10201` bundle) or promote the tested release, paste the release notes, **Next**.
 3. Choose a rollout percentage (a staged rollout, such as 20%, limits the damage of a bad release) and **Save**, then **Publishing overview → Send changes for review**.
-4. Once approved, the listing goes live at https://play.google.com/store/apps/details?id=io.github.gauravtiwari31.doall. Add the link to the root README and the release notes.
+4. Once approved, the listing goes live at https://play.google.com/store/apps/details?id=io.github.gauravtiwari31.doallapp. Add the link to the root README and the release notes.
 
 ---
 
@@ -334,7 +334,7 @@ If the key ever leaks, delete it under **Keys** in the Cloud console and create 
 | New apps are published as an Android App Bundle ([source](https://developer.android.com/guide/app-bundle)) | CI builds `DoAll.aab` with `bundleRelease` and attaches it to every release | [`.github/workflows/android-apk.yml`](../../.github/workflows/android-apk.yml) |
 | Signed with a private upload key, not the debug key | `DOALL_UPLOAD_*` Gradle properties or environment variables; Gradle warns when it falls back to the debug key | [`mobile/android/app/build.gradle`](../../mobile/android/app/build.gradle), [`mobile/scripts/create-upload-key.mjs`](../../mobile/scripts/create-upload-key.mjs) |
 | Play App Signing ([source](https://support.google.com/googleplay/android-developer/answer/9842756)) | Google-generated app signing key, set up at the first upload | Play Console ([step 5](#internal-testing-the-first-upload-and-play-app-signing)) |
-| Unique, permanent package name | `io.github.gauravtiwari31.doall` | `applicationId` in [`mobile/android/app/build.gradle`](../../mobile/android/app/build.gradle) |
+| Unique, permanent package name | `io.github.gauravtiwari31.doallapp` | `applicationId` in [`mobile/android/app/build.gradle`](../../mobile/android/app/build.gradle) |
 | A higher version code for every upload | `versionCode` is derived from the version (`1.2.0` → `10200`) | `"version"` in [`mobile/package.json`](../../mobile/package.json) |
 | New apps and updates target Android 16 (API 36) since 31 August 2026 ([source](https://developer.android.com/google/play/requirements/target-sdk)) | `targetSdkVersion = 36` | [`mobile/android/build.gradle`](../../mobile/android/build.gradle) |
 | Native code supports 16 KB memory pages ([source](https://developer.android.com/guide/practices/page-sizes)) | React Native 0.87's native libraries support 16 KB pages; App bundle explorer confirms it per upload | [`mobile/package.json`](../../mobile/package.json) |
@@ -355,7 +355,7 @@ If the key ever leaks, delete it under **Keys** in the Cloud console and create 
 ## Troubleshooting
 
 **"You need to use a different package name because … already exists in Google Play."**
-Package names are unique across Google Play and are never released, not even when an app is deleted; that is why DoAll moved from `com.doall` to `io.github.gauravtiwari31.doall`. If this ever happens before the first upload, choose another reverse-domain name you control, change `applicationId` in `mobile/android/app/build.gradle` and every mention in these docs. After the first upload the package name can't change.
+Package names are unique across Google Play and are never released, not even when an app is deleted; that is why DoAll moved from `com.doall` to `io.github.gauravtiwari31.doallapp` (`io.github.gauravtiwari31.doall` was used by the 1.2.0 and 1.2.1 GitHub builds only). If this ever happens before the first upload, choose another reverse-domain name you control, change `applicationId` in `mobile/android/app/build.gradle` and every mention in these docs. After the first upload the package name can't change.
 
 **"You uploaded an APK or Android App Bundle that was signed in debug mode."**
 The build didn't find the upload key and fell back to the debug key (Gradle printed a warning). On CI, check the four `ANDROID_UPLOAD_*` secrets; locally, the four `DOALL_UPLOAD_*` properties. Verify with `keytool -printcert -jarfile …` as in [step 2](#on-your-own-computer).

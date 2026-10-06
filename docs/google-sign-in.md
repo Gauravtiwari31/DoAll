@@ -1,6 +1,6 @@
 # Setting up Sign in with Google
 
-DoAll's **Continue with Google** needs a Google Cloud project with OAuth clients, two settings on the server and one setting for the app build. This guide sets them up for the hosted server (`https://doall-api-m1yy.onrender.com`) and the Play Store app (`io.github.gauravtiwari31.doall`). It takes about 20 minutes, plus the first Play upload for the last fingerprint.
+DoAll's **Continue with Google** needs a Google Cloud project with OAuth clients, two settings on the server and one setting for the app build. This guide sets them up for the hosted server (`https://doall-api-m1yy.onrender.com`) and the Play Store app (`io.github.gauravtiwari31.doallapp`). It takes about 20 minutes, plus the first Play upload for the last fingerprint.
 
 Until it's done, everything else works as before: the app hides the Google button, and the server answers `501` to Google sign-in requests.
 
@@ -52,7 +52,7 @@ Deleting an account that has no password: in the app, the person chooses their G
 
 ## 3. Create the Android clients (app)
 
-Google only gives an app ID tokens if its package name and **SHA-1 signing fingerprint** match an Android client. Each signing key needs its own client (**Clients → Create client → Android**, package name `io.github.gauravtiwari31.doall`):
+Google only gives an app ID tokens if its package name and **SHA-1 signing fingerprint** match an Android client. Each signing key needs its own client (**Clients → Create client → Android**, package name `io.github.gauravtiwari31.doallapp`):
 
 | Name | SHA-1 of | Needed for | Where to find it |
 |---|---|---|---|

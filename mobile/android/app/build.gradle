@@ -124,7 +124,7 @@ android {
     // separate on purpose and can never change once the app is on Google Play.
     namespace "com.doall"
     defaultConfig {
-        applicationId "io.github.gauravtiwari31.doall"
+        applicationId "io.github.gauravtiwari31.doallapp"
         minSdkVersion rootProject.ext.minSdkVersion
         targetSdkVersion rootProject.ext.targetSdkVersion
         versionCode appVersionCode
