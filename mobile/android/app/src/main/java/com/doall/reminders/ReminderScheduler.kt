@@ -55,8 +55,11 @@ internal object ReminderScheduler {
   private const val BATCH_MS = 30_000L
   /** A reminder missed while the phone was off is still shown if it's this recent. */
   private const val LATE_GRACE_MS = 6 * 60 * 60 * 1000L
-  /** Without the exact alarm permission, Android may deliver this much later. */
-  private const val INEXACT_WINDOW_MS = 10 * 60 * 1000L
+  /**
+   * Without the exact alarm permission, the alarm aims straight at a reminder
+   * only this close to it (see [arm]).
+   */
+  private const val FINAL_HOP_MS = 15 * 60 * 1000L
 
   @Synchronized
   fun replace(context: Context, reminders: List<Reminder>) {
@@ -102,7 +105,15 @@ internal object ReminderScheduler {
         Log.w(TAG, "Exact alarm refused", e)
       }
     }
-    alarmManager.setWindow(AlarmManager.RTC_WAKEUP, next.fireAt, INEXACT_WINDOW_MS, alarm)
+    // Without the permission: an inexact alarm that may still go off while the
+    // phone is in Doze (deep sleep, which lasts longest when it's offline and
+    // nothing else wakes it). Android delivers such an alarm up to 3/4 of its
+    // lead time late (an hour at most), so a far reminder is reached in hops:
+    // halfway there, then again, until it is 15 minutes away. Each hop runs
+    // arm() again, which re-aims at the reminder.
+    val delay = next.fireAt - now
+    val target = if (delay <= FINAL_HOP_MS) next.fireAt else now + delay / 2
+    alarmManager.setAndAllowWhileIdle(AlarmManager.RTC_WAKEUP, target, alarm)
   }
 
   fun canScheduleExact(alarmManager: AlarmManager): Boolean =

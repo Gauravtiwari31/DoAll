@@ -37,4 +37,6 @@ export const STORAGE_KEYS = {
   user: 'doall.user.v1',
   preferences: 'doall.preferences.v1',
   apiUrl: 'doall.apiUrl.v1',
+  /** Set once the user was asked to allow on-time (exact) reminders. */
+  exactAlarmAsked: 'doall.exactAlarmAsked.v1',
 } as const;

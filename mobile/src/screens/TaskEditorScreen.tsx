@@ -41,6 +41,7 @@ import { TaskFormErrors, validateTask } from '../features/tasks/validation';
 import { AppScreenProps } from '../navigation/types';
 import { device } from '../services/device';
 import { reminders } from '../services/reminders';
+import { STORAGE_KEYS, storage } from '../services/storage';
 import { useAppDispatch, useAppSelector } from '../store/hooks';
 import { fonts, useTheme } from '../theme';
 import { DEADLINE_PRESETS, SCHEDULE_PRESETS } from '../utils/dates';
@@ -182,6 +183,26 @@ export function TaskEditorScreen({
           onPress: () => reminders.openSettings('notifications'),
         },
       });
+      return;
+    }
+    // Android 14+ doesn't allow on-time alarms by default; ask once.
+    const status = await reminders.status();
+    if (
+      status &&
+      !status.exactAlarmsAllowed &&
+      !(await storage.get<boolean>(STORAGE_KEYS.exactAlarmAsked))
+    ) {
+      await storage.set(STORAGE_KEYS.exactAlarmAsked, true);
+      const ok = await confirm({
+        title: 'Allow on-time reminders?',
+        message:
+          'Without "Alarms & reminders", Android can deliver reminders late, especially while the phone is asleep or offline. Turn it on for DoAll on the next screen.',
+        confirmLabel: 'Allow',
+        cancelLabel: 'Not now',
+      });
+      if (ok) {
+        reminders.openSettings('exactAlarms');
+      }
     }
   };
 

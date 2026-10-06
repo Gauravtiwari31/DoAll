@@ -153,7 +153,7 @@ export function RemindersScreen({ navigation }: AppScreenProps<'Reminders'>) {
               ok={status.exactAlarmsAllowed}
               title="On-time reminders"
               okText="Reminders go off on the minute."
-              fixText="Without the Alarms & reminders permission, Android may deliver reminders up to about 10 minutes late."
+              fixText="Without the Alarms & reminders permission, Android can deliver reminders late, by up to an hour while the phone is asleep."
               fixLabel="Allow alarms & reminders"
               onFix={() => open('exactAlarms')}
             />
