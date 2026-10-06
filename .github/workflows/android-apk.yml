@@ -62,7 +62,7 @@ jobs:
 
       - name: Check release requirements
         env:
-          GOOGLE_WEB_CLIENT_ID: ${{ vars.DOALL_GOOGLE_WEB_CLIENT_ID }}
+          GOOGLE_WEB_CLIENT_ID: ${{ vars.DOALL_GOOGLE_WEB_CLIENT_ID || secrets.DOALL_GOOGLE_WEB_CLIENT_ID }}
         run: |
           version=$(node -p "require('./package.json').version")
           echo "App version $version"
@@ -99,13 +99,13 @@ jobs:
       # Variables) baked into src/env.ts. Neither is a secret:
       #  - DOALL_API_URL, e.g. https://doall-api.onrender.com, makes the app use
       #    the hosted backend by default. Unset = local backend (10.0.2.2).
-      #  - DOALL_GOOGLE_WEB_CLIENT_ID, the server's Google OAuth client ID,
+      #  - DOALL_GOOGLE_WEB_CLIENT_ID (a variable or a secret), the server's Google OAuth client ID,
       #    turns on "Continue with Google" (docs/google-sign-in.md).
       #  - DOALL_SENTRY_DSN turns on crash reporting (docs/operations.md).
       - name: Write the build settings
         env:
           DOALL_API_URL: ${{ vars.DOALL_API_URL }}
-          DOALL_GOOGLE_WEB_CLIENT_ID: ${{ vars.DOALL_GOOGLE_WEB_CLIENT_ID }}
+          DOALL_GOOGLE_WEB_CLIENT_ID: ${{ vars.DOALL_GOOGLE_WEB_CLIENT_ID || secrets.DOALL_GOOGLE_WEB_CLIENT_ID }}
           DOALL_SENTRY_DSN: ${{ vars.DOALL_SENTRY_DSN }}
         run: node scripts/write-build-env.mjs
 
