@@ -188,7 +188,7 @@ Install it on a phone (allow "install unknown apps") or drag it onto a running e
 
 > The download links only work for people who aren't logged in to GitHub when the repository is **public**.
 
-**Upgrading from 1.0 or 1.1:** from 1.2.0 the app has a new package ID (`io.github.gauravtiwari31.doallapp` since 1.2.2, the one Google Play uses) and is signed with a private release key, so it installs next to the old version instead of updating it. Uninstall the old DoAll; your tasks are on the server, so just log in again.
+**Upgrading from 1.0 or 1.1:** from 1.2.0 the app has a new package ID (`io.github.gauravtiwari31.doallapp` since 1.2.1, the one Google Play uses) and is signed with a private release key, so it installs next to the old version instead of updating it. Uninstall the old DoAll; your tasks are on the server, so just log in again.
 
 To build it yourself instead:
 
