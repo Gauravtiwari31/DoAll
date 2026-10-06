@@ -1,6 +1,6 @@
 {
   "name": "doall",
-  "version": "1.2.0",
+  "version": "1.2.1",
   "private": true,
   "description": "DoAll — a React Native (Android) to-do app with authentication, smart sorting and a paper & ink design",
   "author": "Gaurav Tiwari",

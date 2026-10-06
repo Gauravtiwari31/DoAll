@@ -12,7 +12,7 @@ The owner's guide to getting DoAll onto Google Play and keeping it there. Work t
 | **Privacy policy** | https://doall-api-m1yy.onrender.com/privacy |
 | **Account deletion** | https://doall-api-m1yy.onrender.com/account/delete |
 | **Sign in with Google** | Optional, set up with [docs/google-sign-in.md](../google-sign-in.md). The Play version needs the app signing key's fingerprint, which exists after the first upload. |
-| **First Play version** | `1.2.0`, version code `10200` |
+| **First Play version** | `1.2.1`, version code `10201` |
 | **Listing, once live** | https://play.google.com/store/apps/details?id=io.github.gauravtiwari31.doall |
 
 Play Console menus move around from time to time. The paths below match Google's help pages as of October 2026, and every rule links to the official page it comes from.
@@ -106,9 +106,9 @@ Google Play only accepts new apps as an **Android App Bundle** (`.aab`) ([About 
 1. On GitHub, open **Settings → Secrets and variables → Actions** and check:
    - **Variables:** `DOALL_API_URL` = `https://doall-api-m1yy.onrender.com`, so the app talks to the hosted server and links to its privacy and deletion pages, and for Google sign-in `DOALL_GOOGLE_WEB_CLIENT_ID` = the Web client ID;
    - **Secrets:** the four `ANDROID_UPLOAD_*` secrets from step 1.
-2. Check that `"version"` in [`mobile/package.json`](../../mobile/package.json) is `1.2.0`.
-3. **Actions → Android build → Run workflow**, enter `v1.2.0` in **release**, leave **play_track** at `none`, and run it.
-4. When the run finishes, the [v1.2.0 release](https://github.com/Gauravtiwari31/DoAll/releases/tag/v1.2.0) has **DoAll.aab** (for Google Play) and **DoAll.apk** (for sideloading). Download `DoAll.aab`.
+2. Check that `"version"` in [`mobile/package.json`](../../mobile/package.json) is `1.2.1`.
+3. **Actions → Android build → Run workflow**, enter `v1.2.1` in **release**, leave **play_track** at `none`, and run it.
+4. When the run finishes, the [v1.2.1 release](https://github.com/Gauravtiwari31/DoAll/releases/tag/v1.2.1) has **DoAll.aab** (for Google Play) and **DoAll.apk** (for sideloading). Download `DoAll.aab`.
 
 A release run fails on purpose when the upload key secrets are missing, because a release has to be accepted by Google Play.
 
@@ -168,7 +168,7 @@ Open **Policy and programs → App content** and complete every declaration it l
 | **Advertising ID** | **No**. DoAll doesn't use the advertising ID or declare the `AD_ID` permission ([Advertising ID](https://support.google.com/googleplay/android-developer/answer/6048248)). |
 | Anything else listed | See the permissions below. None of them needs a declaration form: DoAll doesn't use `USE_EXACT_ALARM` (which Google restricts to alarm-clock and calendar apps), foreground services, or photo and video access. |
 
-**Permissions in 1.2.0**, for the store review and the **Exact alarms** question if Play Console asks:
+**Permissions in 1.2.x**, for the store review and the **Exact alarms** question if Play Console asks:
 
 | Permission | Why |
 |---|---|
@@ -254,12 +254,12 @@ Each new release goes **internal testing → closed testing → production** the
 
 1. **Test and release → Testing → Internal testing → Create new release.**
 2. Play App Signing is switched on for a new app automatically, with an app signing key that Google generates and keeps. Keep that default: Google holds the key that every future update needs, and your upload key stays replaceable.
-3. Upload `DoAll.aab`. The release name defaults to `10200 (1.2.0)`.
-4. Release notes: paste [`changelogs/10200.txt`](../../mobile/fastlane/metadata/android/en-US/changelogs/10200.txt) between the language tags (500 characters at most per language):
+3. Upload `DoAll.aab`. The release name defaults to `10201 (1.2.1)`.
+4. Release notes: paste [`changelogs/10201.txt`](../../mobile/fastlane/metadata/android/en-US/changelogs/10201.txt) between the language tags (500 characters at most per language):
 
    ```
    <en-US>
-   …contents of 10200.txt…
+   …contents of 10201.txt…
    </en-US>
    ```
 
@@ -268,7 +268,7 @@ Each new release goes **internal testing → closed testing → production** the
 
 After this first upload:
 
-- **Test and release → App bundle explorer:** version code `10200`, target SDK 36, and no warnings. Play Console checks [16 KB page size](https://developer.android.com/guide/practices/page-sizes) compatibility here; DoAll's native code comes from React Native 0.87, which supports 16 KB pages ([React Native 0.77 notes](https://reactnative.dev/blog/2025/01/21/version-0.77)).
+- **Test and release → App bundle explorer:** version code `10201`, target SDK 36, and no warnings. Play Console checks [16 KB page size](https://developer.android.com/guide/practices/page-sizes) compatibility here; DoAll's native code comes from React Native 0.87, which supports 16 KB pages ([React Native 0.77 notes](https://reactnative.dev/blog/2025/01/21/version-0.77)).
 - **Sign in with Google:** open **Test and release → App integrity → Play app signing**, copy the *App signing key certificate* SHA-1 and add it as an Android client in Google Cloud ([step 3 of the Google sign-in guide](../google-sign-in.md#3-create-the-android-clients-app)). Until then, Continue with Google fails in every copy installed from Google Play. Then try it from the internal testing install.
 - **Android developer verification** page, **Package names** tab: `io.github.gauravtiwari31.doall` should show as registered. Google registers Play apps automatically, and every Play package must be registered since 30 September 2026 ([registering Play package names](https://support.google.com/googleplay/android-developer/answer/16984799)). Register it there yourself if it isn't.
 - **The GitHub APK** is signed with the upload key, not with Google's app signing key. Android devices start requiring apps from verified developers outside Google Play in Brazil, Indonesia, Singapore and Thailand from 30 September 2026, and worldwide from 2027 ([developer verification](https://developer.android.com/developer-verification)). To keep the GitHub APK installable there, add the upload key's SHA-256 fingerprint (step 1) as an **additional key** on the same page. Play Console may ask for proof: a snippet it gives you goes into `android/app/src/main/assets/adi-registration.properties` in a release APK signed with that key ([adding additional keys](https://support.google.com/googleplay/android-developer/answer/16762301)).
@@ -276,7 +276,7 @@ After this first upload:
 ### Closed testing: 12 testers for 14 days
 
 1. **Test and release → Testing → Closed testing.** Open the default track (**Alpha**) with **Manage track**.
-2. **Create new release → Add from library**, pick the `10200` bundle, paste the same release notes, then **Next → Save** and send it for review. Closed tests are reviewed by Google, and the first review of a new app can take a few days.
+2. **Create new release → Add from library**, pick the `10201` bundle, paste the same release notes, then **Next → Save** and send it for review. Closed tests are reviewed by Google, and the first review of a new app can take a few days.
 3. Under **Countries / regions**, add the countries your testers live in.
 4. On the **Testers** tab, add an email list with at least 12 Google accounts and copy the opt-in link. Each tester opens it, accepts, and installs DoAll from Google Play. **Nobody should leave the test for 14 days.**
 5. Ask testers to use the app for real during those two weeks and to send feedback (a form, an email address or a chat group). The production application asks what they did and what you changed because of it.
@@ -288,7 +288,7 @@ When the 12-testers-for-14-days condition is met, **Dashboard → Apply for prod
 ### Production
 
 1. **Test and release → Production → Countries / regions**: add every country where DoAll should be available.
-2. **Create new release → Add from library** (the same `10200` bundle) or promote the tested release, paste the release notes, **Next**.
+2. **Create new release → Add from library** (the same `10201` bundle) or promote the tested release, paste the release notes, **Next**.
 3. Choose a rollout percentage (a staged rollout, such as 20%, limits the damage of a bad release) and **Save**, then **Publishing overview → Send changes for review**.
 4. Once approved, the listing goes live at https://play.google.com/store/apps/details?id=io.github.gauravtiwari31.doall. Add the link to the root README and the release notes.
 

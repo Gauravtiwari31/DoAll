@@ -1,5 +1,10 @@
 **DoAll** is an Android to-do app with accounts, a smart sort that tells you what to do next, and a paper & ink design.
 
+### What's new in 1.2.1
+
+- **Reminders arrive while the phone sleeps, offline too.** Android could hold reminders back while the phone was asleep without a connection; now they go off. When you turn on your first reminder, DoAll also asks once to allow on-time reminders (Android 14 and newer).
+- Confirmation and password reset emails now come from DoAll's Gmail address.
+
 ### What's new in 1.2.0
 
 - **Works offline.** Your tasks live on your phone and sync with the server in the background: add, edit and tick off tasks with no connection, and changes catch up once you're back online. Edits on two phones are merged, keeping the latest change of each task.
