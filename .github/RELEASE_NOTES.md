@@ -1,5 +1,10 @@
 **DoAll** is an Android to-do app with accounts, a smart sort that tells you what to do next, and a paper & ink design.
 
+### What's new in 1.2.2
+
+- **Continue with Google** is in the app: sign up or log in with your Google account.
+- The app's ID is now `io.github.gauravtiwari31.doallapp`, the one it has on Google Play. Android treats it as a new app, so uninstall 1.2.0 or 1.2.1 first; your tasks are on the server, so just log in again.
+
 ### What's new in 1.2.1
 
 - **Reminders arrive while the phone sleeps, offline too.** Android could hold reminders back while the phone was asleep without a connection; now they go off. When you turn on your first reminder, DoAll also asks once to allow on-time reminders (Android 14 and newer).
