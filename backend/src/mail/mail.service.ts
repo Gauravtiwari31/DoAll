@@ -29,9 +29,12 @@ export function parseSender(from: string): { name?: string; email: string } {
 const TIMEOUT_MS = 10_000;
 
 /**
- * Sends transactional email (verification and password reset links) through
- * an email API over HTTPS: Brevo or Resend, picked with MAIL_PROVIDER. Not
- * SMTP, because free hosts such as Render block outgoing SMTP ports.
+ * Sends transactional email (verification and password reset links) over
+ * HTTPS, picked with MAIL_PROVIDER: Gmail through a small
+ * Google Apps Script web app (backend/scripts/gmail-mailer.gs) that sends
+ * from the Gmail account it belongs to, or Resend (which needs a domain of
+ * your own). Not SMTP, because free hosts such as
+ * Render block outgoing SMTP ports.
  *
  * Without MAIL_PROVIDER, email is off: `enabled` is false and nothing is
  * sent. The rest of the API then doesn't ask for verified addresses.
@@ -49,7 +52,7 @@ export class MailService {
     return Boolean(this.settings.provider && this.settings.apiKey && this.settings.from);
   }
 
-  /** The email service in use, e.g. "brevo", or null when email is off. */
+  /** The email service in use, e.g. "gmail", or null when email is off. */
   get provider(): string | null {
     return this.enabled ? this.settings.provider : null;
   }
@@ -59,24 +62,17 @@ export class MailService {
     if (!provider || !apiKey || !from) {
       throw new MailDeliveryError('Email is not set up on this server');
     }
-    const request: { url: string; headers: Record<string, string>; body: object } =
-      provider === 'brevo'
-        ? {
-            url: 'https://api.brevo.com/v3/smtp/email',
-            headers: { 'api-key': apiKey },
-            body: {
-              sender: parseSender(from),
-              to: [{ email: mail.to }],
-              subject: mail.subject,
-              textContent: mail.text,
-              htmlContent: mail.html,
-            },
-          }
-        : {
-            url: 'https://api.resend.com/emails',
-            headers: { Authorization: `Bearer ${apiKey}` },
-            body: { from, to: [mail.to], subject: mail.subject, text: mail.text, html: mail.html },
-          };
+    if (provider === 'gmail') {
+      await this.sendWithGmail(mail);
+      this.logger.log(`Sent "${mail.subject}" through gmail`);
+      return;
+    }
+    // Resend.
+    const request = {
+      url: 'https://api.resend.com/emails',
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: { from, to: [mail.to], subject: mail.subject, text: mail.text, html: mail.html },
+    };
 
     let response: Response;
     try {
@@ -97,5 +93,45 @@ export class MailService {
       );
     }
     this.logger.log(`Sent "${mail.subject}" through ${provider}`);
+  }
+
+  /**
+   * Posts the email to the Apps Script web app with the shared secret
+   * (MAIL_API_KEY). Google answers through a redirect, which fetch follows,
+   * and always with status 200: the script's own JSON says how it went.
+   */
+  private async sendWithGmail(mail: Mail): Promise<void> {
+    const { apiKey, from, scriptUrl } = this.settings;
+    if (!scriptUrl) throw new MailDeliveryError('MAIL_SCRIPT_URL is not set');
+    let response: Response;
+    try {
+      response = await fetch(scriptUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          secret: apiKey,
+          to: mail.to,
+          subject: mail.subject,
+          text: mail.text,
+          html: mail.html,
+          name: parseSender(from ?? '').name ?? 'DoAll',
+        }),
+        signal: AbortSignal.timeout(TIMEOUT_MS * 2),
+      });
+    } catch (error) {
+      throw new MailDeliveryError(`Couldn't reach Apps Script: ${(error as Error).message}`);
+    }
+    const body = await response.text().catch(() => '');
+    let result: { ok?: boolean; error?: string } = {};
+    try {
+      result = JSON.parse(body) as typeof result;
+    } catch {
+      // Not JSON: usually a Google sign-in page, when the web app isn't shared with "Anyone".
+    }
+    if (!response.ok || result.ok !== true) {
+      throw new MailDeliveryError(
+        `gmail script answered ${response.status}: ${(result.error ?? body).slice(0, 300)}`,
+      );
+    }
   }
 }

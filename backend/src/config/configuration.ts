@@ -50,12 +50,17 @@ export interface AppConfig {
   mail: {
     provider: MailProvider | null;
     apiKey: string | null;
-    /** Sender, e.g. `DoAll <no-reply@example.com>`. */
+    /**
+     * Sender, e.g. `DoAll <no-reply@example.com>`. With gmail, only the name
+     * counts: Gmail always sends from the account that owns the script.
+     */
     from: string | null;
+    /** gmail only: the Apps Script web app's URL (MAIL_SCRIPT_URL). */
+    scriptUrl: string | null;
   };
 }
 
-export const MAIL_PROVIDERS = ['brevo', 'resend'] as const;
+export const MAIL_PROVIDERS = ['gmail', 'resend'] as const;
 export type MailProvider = (typeof MAIL_PROVIDERS)[number];
 
 /** Empty strings count as unset, so a blank variable on the host turns a feature off. */
@@ -88,5 +93,6 @@ export const configuration = (): AppConfig => ({
     provider: optional(process.env.MAIL_PROVIDER)?.toLowerCase() as MailProvider | null,
     apiKey: optional(process.env.MAIL_API_KEY),
     from: optional(process.env.MAIL_FROM),
+    scriptUrl: optional(process.env.MAIL_SCRIPT_URL),
   },
 });

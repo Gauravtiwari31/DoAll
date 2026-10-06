@@ -257,7 +257,10 @@ ${body}
 }
 
 /** Names of the email services DoAll can use, as the policy shows them. */
-const EMAIL_PROVIDER_NAMES: Record<string, string> = { brevo: 'Brevo', resend: 'Resend' };
+const EMAIL_PROVIDER_NAMES: Record<string, string> = {
+  resend: 'Resend',
+  gmail: "Google's Gmail",
+};
 
 export interface PrivacyPolicyOptions {
   /** The email service this server sends through (MAIL_PROVIDER), if any. */

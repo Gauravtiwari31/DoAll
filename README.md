@@ -416,7 +416,7 @@ npm run lint
 
 - **Token storage.** Tokens are kept in AsyncStorage, which is app-private storage, and `allowBackup` is off. For production I'd switch to Android Keystore-backed storage such as `react-native-keychain`. Only [`services/session.ts`](mobile/src/services/session.ts) would change.
 - **Sorting on the device.** A personal task list is small and lives on the phone, so filtering and sorting happen there instantly. The API offers the same filters and sorts for other clients.
-- **Own auth instead of Firebase.** The API keeps its own accounts (bcrypt, rotating refresh tokens, Google sign-in verified server-side) rather than Firebase Auth: existing accounts keep working, and builds don't need a Firebase project. Email confirmation and password reset go through an email API (Brevo or Resend), never SMTP.
+- **Own auth instead of Firebase.** The API keeps its own accounts (bcrypt, rotating refresh tokens, Google sign-in verified server-side) rather than Firebase Auth: existing accounts keep working, and builds don't need a Firebase project. Email confirmation and password reset are sent from the owner's Gmail through a small Apps Script (or Resend, with a domain), never SMTP.
 - **No push to other devices.** Another phone picks up changes when it opens or comes to the foreground, not instantly; FCM data messages could nudge it later.
 - **Last write wins** per task, not per field: if two phones edit different fields of the same task while offline, the later edit replaces the whole task.
 - **Backups** run nightly on GitHub Actions, encrypted, because MongoDB Atlas's free tier keeps none ([operations](docs/operations.md#3-nightly-database-backups)).

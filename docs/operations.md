@@ -5,7 +5,7 @@ Everything below is set up in someone's own accounts (Render, MongoDB Atlas, Git
 | Part | What it gives | Where it's configured |
 |---|---|---|
 | [Keep-alive monitor](#1-keep-the-server-awake) | No 30-60 s wake-up delay on the free Render plan | An uptime monitor service |
-| [Email](#2-email-confirmation-and-password-reset) | "Forgot password?" and email confirmation | Brevo or Resend, Render env vars |
+| [Email](#2-email-confirmation-and-password-reset) | "Forgot password?" and email confirmation | Your Gmail (Apps Script), Render env vars |
 | [Backups](#3-nightly-database-backups) | A way back if the database is lost (Atlas M0 has no backups) | MongoDB Atlas, GitHub secrets |
 | [Crash reports](#4-crash-reports-with-sentry) | Knowing when the app or server crashes | Sentry, Render env var, GitHub variables |
 | [Database access](#5-mongodb-atlas-access) | Least-privilege database users | MongoDB Atlas |
@@ -37,23 +37,37 @@ The server sends two emails: a link to confirm the address after sign-up (sync w
 
 **While email isn't set up**, nothing changes for users: no emails, no confirmation needed, and "Forgot password?" says the server can't send emails.
 
-### Brevo (no domain of your own needed)
+### Your Gmail (no domain needed)
 
-1. Sign up at [Brevo](https://www.brevo.com) (free: 300 emails a day).
-2. **Senders, domains & dedicated IPs → Senders → Add a sender**: name `DoAll`, your email address. Confirm it from the email Brevo sends.
-3. **SMTP & API → API keys → Generate a new API key**. Copy it (it's shown once).
-4. In Render, **doall-api → Environment**, add:
+DoAll's emails are sent by a small Google Apps Script in your Google account, so they come from your own Gmail address. Free, about 100 emails a day.
+
+1. **Create the script.** Go to [script.google.com](https://script.google.com) (signed in to the Gmail you want to send from) → **New project**. Name it `DoAll mailer`. Replace everything in `Code.gs` with the contents of [`backend/scripts/gmail-mailer.gs`](../backend/scripts/gmail-mailer.gs), and **Save**.
+2. **Make a secret.** Generate a random value (or any 40+ random letters and digits):
+
+   ```bash
+   node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"
+   ```
+
+   In the script: **Project Settings** (gear icon) → **Script Properties** → **Add script property**: property `SECRET`, value = that secret → **Save script properties**.
+3. **Deploy it.** **Deploy → New deployment** → gear icon → **Web app**:
+   - Description: `DoAll mailer`
+   - Execute as: **Me**
+   - Who has access: **Anyone** (anyone can call the URL, but nothing is sent without the secret)
+
+   **Deploy**, then **Authorize access**: choose your Google account. Google warns that the app isn't verified, because it's your own script: **Advanced → Go to DoAll mailer (unsafe) → Allow**. Copy the **Web app URL** (`https://script.google.com/macros/s/…/exec`).
+4. **Tell the server.** In Render, **doall-api → Environment**, set these and remove any others starting with `MAIL_` left from before:
 
    | Key | Value |
    |---|---|
-   | `MAIL_PROVIDER` | `brevo` |
-   | `MAIL_API_KEY` | the API key |
-   | `MAIL_FROM` | `DoAll <the address from step 2>` |
+   | `MAIL_PROVIDER` | `gmail` |
+   | `MAIL_API_KEY` | the secret from step 2 |
+   | `MAIL_FROM` | `DoAll <your gmail address>` (only the name `DoAll` is used) |
+   | `MAIL_SCRIPT_URL` | the Web app URL from step 3 |
 
    `PUBLIC_URL` isn't needed on Render: the links use `RENDER_EXTERNAL_URL`, which Render sets. Set `PUBLIC_URL` if you move to a custom domain or another host.
-5. Save; Render redeploys. Sign up with a test address and check that the email arrives, then try **Forgot password?** on the log in screen.
+5. **Save and redeploy**, then test: register a new email account in the app (or use **Forgot password?**). The email arrives from your Gmail; it also shows in that Gmail's **Sent** folder.
 
-Sending from a Gmail address through Brevo works, but Gmail and Yahoo may put such mail in spam, because the sender's domain (gmail.com) didn't authorise Brevo. With a domain of your own, authenticate it in Brevo (DKIM and DMARC records) and send from `no-reply@yourdomain`.
+If you edit the script later, publish the change with **Deploy → Manage deployments → Edit (pencil) → Version: New version → Deploy**; the URL stays the same. If an email doesn't arrive, Render's log has a line starting `Couldn't send` with the script's answer: `Wrong secret` means `MAIL_API_KEY` and the script's `SECRET` differ; an HTML answer means the deployment isn't shared with **Anyone**.
 
 ### Resend (needs a domain)
 
@@ -65,7 +79,7 @@ Resend only sends to other people from a domain you've verified. Add the domain 
 - Google accounts count as confirmed.
 - Accounts from before 1.2.0 also need to confirm once email is on. Their existing tasks still download to the phone and everything works there, but uploading changes waits for the confirmation. Tell existing users to expect the email.
 
-The privacy policy names the provider automatically (from `MAIL_PROVIDER`).
+The privacy policy names the email service automatically (from `MAIL_PROVIDER`).
 
 ---
 

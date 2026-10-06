@@ -55,7 +55,7 @@ describe('validateEnv', () => {
   describe('email', () => {
     const env = { JWT_ACCESS_SECRET: strong('a'), JWT_REFRESH_SECRET: strong('b') };
     const mail = {
-      MAIL_PROVIDER: 'brevo',
+      MAIL_PROVIDER: 'resend',
       MAIL_API_KEY: 'key',
       MAIL_FROM: 'DoAll <no-reply@example.com>',
       PUBLIC_URL: 'https://doall.example.com',
@@ -84,6 +84,20 @@ describe('validateEnv', () => {
       expect(() => validateEnv({ ...env, ...mail, MAIL_API_KEY: '' })).toThrow(/MAIL_API_KEY/);
       expect(() => validateEnv({ ...env, ...mail, MAIL_FROM: ' ' })).toThrow(/MAIL_FROM/);
       expect(() => validateEnv({ ...env, ...mail, PUBLIC_URL: '' })).toThrow(/PUBLIC_URL is not/);
+    });
+
+    it('needs the Apps Script URL for gmail', () => {
+      const gmail = { ...env, ...mail, MAIL_PROVIDER: 'gmail' };
+      expect(() => validateEnv(gmail)).toThrow(/MAIL_SCRIPT_URL/);
+      expect(() => validateEnv({ ...gmail, MAIL_SCRIPT_URL: 'https://example.com/exec' })).toThrow(
+        /MAIL_SCRIPT_URL/,
+      );
+      expect(
+        validateEnv({
+          ...gmail,
+          MAIL_SCRIPT_URL: 'https://script.google.com/macros/s/AKfycbx-abc_123/exec',
+        }),
+      ).toBeDefined();
     });
 
     it('rejects a PUBLIC_URL that is not an http(s) address', () => {

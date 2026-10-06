@@ -27,7 +27,7 @@ Google's rules quoted below come from [Provide information for Google Play's Dat
 
 **Crash reports depend on the build.** The Sentry SDK is in the app, but it only starts when the build was given a DSN (`DOALL_SENTRY_DSN`). Without one, nothing is sent and the crash rows below stay unselected. With one, select them before releasing that build.
 
-**Service providers** that process data on DoAll's behalf: **Render** (API hosting, Singapore region), **MongoDB Atlas** (database hosting), **GitHub** (encrypted backups), the **email service** that sends confirmation and reset emails (Brevo or Resend, whichever `MAIL_PROVIDER` names) and, if enabled, **Sentry** (crash reports). Nothing is sold or given to anyone for their own purposes.
+**Service providers** that process data on DoAll's behalf: **Render** (API hosting, Singapore region), **MongoDB Atlas** (database hosting), **GitHub** (encrypted backups), **Google** (Gmail sends the confirmation and reset emails, from the developer's account) and, if enabled, **Sentry** (crash reports). Nothing is sold or given to anyone for their own purposes.
 
 **Deletion:** in the app (**Profile → Delete account**) or on the web at <https://doall-api-m1yy.onrender.com/account/delete>, confirmed with the password or with Google. Either one removes the account, every task and every session immediately and permanently.
 

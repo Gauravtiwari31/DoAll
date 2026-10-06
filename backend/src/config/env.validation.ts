@@ -59,6 +59,14 @@ export function validateEnv(env: Record<string, unknown>): Record<string, unknow
     }
     if (!text('MAIL_API_KEY')) problems.push('MAIL_PROVIDER is set but MAIL_API_KEY is not');
     if (!text('MAIL_FROM')) problems.push('MAIL_PROVIDER is set but MAIL_FROM is not');
+    if (
+      mailProvider === 'gmail' &&
+      !/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(text('MAIL_SCRIPT_URL'))
+    ) {
+      problems.push(
+        'MAIL_PROVIDER is gmail, so MAIL_SCRIPT_URL must be the Apps Script web app URL (https://script.google.com/macros/s/.../exec)',
+      );
+    }
     if (!text('PUBLIC_URL') && !text('RENDER_EXTERNAL_URL')) {
       problems.push(
         "MAIL_PROVIDER is set but PUBLIC_URL is not: emails need the server's public address for their links",
