@@ -30,6 +30,7 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
   - [Install the APK](#install-the-apk)
 - [Deploy the backend (free)](#deploy-the-backend-free)
 - [Publishing on Google Play](#publishing-on-google-play)
+- [The website](#the-website)
 - [How it works](#how-it-works)
   - [Smart sort](#smart-sort)
   - [Authentication flow](#authentication-flow)
@@ -127,6 +128,7 @@ DoAll is an Android app built with the React Native CLI and TypeScript, backed b
 │       ├── services/            session, server address, storage
 │       ├── theme/               palette, typography, light/dark themes
 │       └── store/               store setup + typed hooks
+├── web/                         the website (Vite + React): same accounts and sync, Cloudflare Pages
 ├── .github/workflows/           CI (tests) + Android build (APK, app bundle, releases)
 ├── docs/                        screenshots, Google Play publishing guide
 ├── docker-compose.yml           MongoDB + API in one command
@@ -263,6 +265,10 @@ DoAll is set up for Google Play as `io.github.gauravtiwari31.doallapp`. The step
 | Optional automatic draft uploads to a Play track | `play_track` input of the Android build workflow |
 
 ---
+
+## The website
+
+[`web/`](web/) is DoAll in the browser: sign in with the same email or Google account and the same tasks are there, synced through `POST /sync` like the app. It reuses the app's repeat rules, time zones and smart order from `mobile/src`, keeps tasks in the browser so it works offline, can show Google AdSense ads (each with a link to the ad-free app), and hides a secret Focus mode. Deploying it on Cloudflare Pages, allowing it on the server (`CORS_ORIGINS`), Google sign-in and AdSense: [docs/website.md](docs/website.md).
 
 ## How it works
 

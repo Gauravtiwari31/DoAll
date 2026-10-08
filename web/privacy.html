@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Privacy · DoAll website</title>
+    <meta name="description" content="How the DoAll website handles your data, cookies and advertising." />
+    <link rel="icon" type="image/png" href="/icon.png" />
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link
+      rel="stylesheet"
+      href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,400..800&family=IBM+Plex+Mono:wght@400;500;600&family=Instrument+Serif:ital@1&display=swap"
+    />
+    <link rel="stylesheet" href="/src/styles.css" />
+  </head>
+  <body>
+    <header class="topbar">
+      <a class="logo" href="/" aria-label="DoAll home">
+        <img src="/icon.png" alt="" width="36" height="36" style="border-radius: 10px" />
+        <span class="logo-word">DoAll</span>
+      </a>
+      <a class="btn btn-ghost btn-small" href="/">Back to DoAll</a>
+    </header>
+
+    <main class="prose card">
+      <p class="eyebrow">Last updated 9 October 2026</p>
+      <h1>Privacy on the DoAll website</h1>
+      <p>
+        This page covers the DoAll website. Your DoAll account and tasks are the same as in the
+        Android app, and the
+        <a id="app-policy" href="https://doall-api-m1yy.onrender.com/privacy">DoAll privacy policy</a>
+        explains in full what the DoAll server stores about them, for how long, and how to delete it.
+      </p>
+
+      <h2>What this website keeps in your browser</h2>
+      <ul>
+        <li>Your sign-in session (the tokens that keep you signed in).</li>
+        <li>A copy of your tasks and the changes not yet sent to your account, so the site works offline.</li>
+        <li>Small preferences, such as the order you sort tasks in.</li>
+      </ul>
+      <p>
+        These are kept in your browser's local storage, not in cookies, and are never used for
+        advertising. Signing out removes them.
+      </p>
+
+      <h2>What is sent to the DoAll server</h2>
+      <p>
+        When you sign in or create an account: your name, email address and password (stored only as
+        a hash). While you use the site: your tasks, so they reach your other devices. This works
+        exactly as in the app; see the
+        <a href="https://doall-api-m1yy.onrender.com/privacy" class="app-policy-link">DoAll privacy policy</a>.
+      </p>
+
+      <h2>Sign in with Google</h2>
+      <p>
+        If you choose "Continue with Google", Google shows its own sign-in window and tells DoAll your
+        name and email address. Google's
+        <a href="https://policies.google.com/privacy">privacy policy</a> applies to that window.
+      </p>
+
+      <h2>Advertising</h2>
+      <p>
+        The website shows ads from Google AdSense to pay for the server. (The Android app has no ads.)
+      </p>
+      <ul>
+        <li>
+          Third-party vendors, including Google, use cookies to serve ads based on your prior visits to
+          this website or other websites.
+        </li>
+        <li>
+          Google's use of advertising cookies enables it and its partners to serve ads to you based on
+          your visit to this site and/or other sites on the Internet.
+        </li>
+        <li>
+          You may opt out of personalised advertising in
+          <a href="https://adssettings.google.com">Google's Ads Settings</a>, or opt out of some
+          third-party vendors' use of cookies for personalised advertising at
+          <a href="https://www.aboutads.info/choices">www.aboutads.info</a>.
+        </li>
+        <li>
+          Learn
+          <a href="https://policies.google.com/technologies/partner-sites">how Google uses information from sites that use its services</a>.
+        </li>
+      </ul>
+      <p>
+        In the European Economic Area, the UK and Switzerland, you are asked for your consent before
+        personalised ads are shown, and you can change your choice at any time from the privacy link
+        Google adds to the page.
+      </p>
+      <p>Ads never see your tasks: they only appear around them.</p>
+
+      <h2>Other services the page loads</h2>
+      <ul>
+        <li>
+          <strong>Google Fonts</strong>, for the typefaces. Your browser asks Google's servers for
+          them, which shows Google your IP address.
+        </li>
+        <li>
+          <strong>Cloudflare</strong> hosts the website and, like any web host, briefly keeps
+          technical logs of requests (such as IP addresses) to run and protect the service.
+        </li>
+      </ul>
+
+      <h2>Children</h2>
+      <p>The website is not directed at children under 13.</p>
+
+      <h2>Your choices</h2>
+      <ul>
+        <li>Export all your tasks from the account menu, at any time.</li>
+        <li>
+          <a id="delete-link" href="https://doall-api-m1yy.onrender.com/account/delete">Delete your account</a>
+          and every task in it, from the website or from the app.
+        </li>
+        <li>Clear this site's data in your browser settings to remove what it keeps there.</li>
+      </ul>
+
+      <h2>Contact</h2>
+      <p>Questions about privacy: <a href="mailto:gauravt9431@gmail.com">gauravt9431@gmail.com</a>.</p>
+    </main>
+    <script type="module" src="/src/privacy.ts"></script>
+  </body>
+</html>

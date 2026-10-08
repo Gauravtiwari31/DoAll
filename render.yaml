@@ -48,6 +48,11 @@ services:
         sync: false
       - key: MAIL_SCRIPT_URL
         sync: false
+      # Browser addresses allowed to call the API (optional): the website's,
+      # comma-separated, e.g. https://doall.pages.dev,https://yourdomain.com.
+      # See docs/website.md.
+      - key: CORS_ORIGINS
+        sync: false
       # Crash reports (optional): the Sentry project's DSN.
       - key: SENTRY_DSN
         sync: false
