@@ -58,6 +58,10 @@ export default defineConfig(({ mode }) => {
   return {
     plugins: [react(), adsense(client)],
     resolve: { alias: { '@app': appSource } },
+    // Compile the shared app files with this tsconfig too. Otherwise each file
+    // uses its nearest one, mobile/tsconfig.json, which extends a package that
+    // only the mobile app installs (and a clean build, like Cloudflare's, lacks).
+    tsconfig: 'tsconfig.json',
     // The shared app code lives outside this folder.
     server: { fs: { allow: ['..'] } },
     build: {
